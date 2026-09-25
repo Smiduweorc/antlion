@@ -5,3 +5,6 @@ node_modules
 .DS_Store
 *.tgz
 .eslintcache
+
+# Internal docker stuff that i use to configure my self hosted runners on gitlabs
+internal/
