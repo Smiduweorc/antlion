@@ -64,7 +64,7 @@
 		"oauth4webapi": "^3.8.8",
 		"tsx": "^4.23.15",
 		"typedoc": "^0.28.20",
-		"typescript": "^6.0.3",
+		"typescript": "^7.0.2",
 		"typescript-eslint": "^8.70.1"
 	},
 	"peerDependencies": {
