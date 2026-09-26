@@ -36,6 +36,13 @@ test("the legacy export is exactly legacyRS256Proofs", async () => {
 	assert.deepEqual(Object.keys(legacy), ["legacyRS256Proofs"]);
 });
 
+test("the node export is exactly fromNodeRequest", async () => {
+	const node = await import(`${manifest.name}/node`);
+	assert.deepEqual(Object.keys(node), ["fromNodeRequest"]);
+	const request = node.fromNodeRequest({ method: "GET", url: "/r", headersDistinct: { dpop: ["a", "b"] } });
+	assert.equal(request.headers.get("dpop"), "a, b");
+});
+
 test("the built package verifies a request end to end", async () => {
 	const { accessTokenProfile, generateKeyPair, newAccessToken } = await import("lacewing");
 	const { calculateJwkThumbprint, base64url } = await import("jose");
@@ -116,6 +123,7 @@ test("importing the package does nothing: no output, no globals", async () => {
 		const before = new Set(Object.getOwnPropertyNames(globalThis));
 		await import(${JSON.stringify(manifest.name)});
 		await import(${JSON.stringify(`${manifest.name}/legacy`)});
+		await import(${JSON.stringify(`${manifest.name}/node`)});
 		const added = Object.getOwnPropertyNames(globalThis).filter((n) => !before.has(n));
 		process.stdout.write(JSON.stringify(added));
 	`;

@@ -9,6 +9,7 @@
 		"./**/*.ts",
 		"../index.ts",
 		"../legacy.ts",
+		"../node.ts",
 		"../src/**/*.ts",
 		"../tools/**/*.ts"
 	],

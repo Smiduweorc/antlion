@@ -6,6 +6,6 @@
 		"noUnusedLocals": false,
 		"rootDir": "../../"
 	},
-	"include": ["./fixtures/**/*.ts", "../../index.ts", "../../legacy.ts", "../../src/**/*.ts"],
+	"include": ["./fixtures/**/*.ts", "../../index.ts", "../../legacy.ts", "../../node.ts", "../../src/**/*.ts"],
 	"exclude": ["../../node_modules", "../../dist"]
 }

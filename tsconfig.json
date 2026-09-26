@@ -25,7 +25,8 @@
 	"include": [
 		"./src/**/*.ts",
 		"index.ts",
-		"legacy.ts"
+		"legacy.ts",
+		"node.ts"
 	],
 	"exclude": [
 		"node_modules",

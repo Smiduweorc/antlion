@@ -4,6 +4,7 @@
 /tests
 /index.ts
 /legacy.ts
+/node.ts
 /tools
 /docs
 node_modules
