@@ -8,10 +8,13 @@
 	"include": [
 		"./**/*.ts",
 		"../index.ts",
-		"../src/**/*.ts"
+		"../legacy.ts",
+		"../src/**/*.ts",
+		"../tools/**/*.ts"
 	],
 	"exclude": [
 		"../node_modules",
-		"../dist"
+		"../dist",
+		"./types/fixtures/**"
 	]
 }

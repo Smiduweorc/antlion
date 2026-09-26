@@ -1,6 +1,6 @@
 {
 	"$schema": "https://typedoc.org/schema.json",
-	"entryPoints": ["index.ts"],
+	"entryPoints": ["index.ts", "legacy.ts"],
 	"projectDocuments": ["guides/boundaries.md", "guides/panva.md"],
 	"out": "docs",
 	"includeVersion": true,
