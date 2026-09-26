@@ -12,6 +12,10 @@
 		".": {
 			"types": "./dist/types/index.d.ts",
 			"default": "./dist/index.js"
+		},
+		"./legacy": {
+			"types": "./dist/types/legacy.d.ts",
+			"default": "./dist/legacy.js"
 		}
 	},
 	"files": [
@@ -25,6 +29,8 @@
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
 		"test": "node --import tsx --test \"tests/**/*.test.ts\"",
+		"test:dist": "npm run build && node --test \"tests/dist/*.test.js\"",
+		"compliance": "node --import tsx tools/run-compliance.ts",
 		"docs": "typedoc",
 		"changelog": "git-cliff -o CHANGELOG.md",
 		"prepare": "lefthook install"
@@ -51,8 +57,11 @@
 		"@eslint/js": "^10.0.1",
 		"@types/node": "^26.6.3",
 		"eslint": "^10.11.0",
+		"fast-check": "^4.10.2",
 		"git-cliff": "^2.14.2",
+		"lacewing": "^1.1.0",
 		"lefthook": "^2.1.14",
+		"oauth4webapi": "^3.8.8",
 		"tsx": "^4.23.15",
 		"typedoc": "^0.28.20",
 		"typescript": "^6.0.3",
@@ -60,5 +69,8 @@
 	},
 	"peerDependencies": {
 		"lacewing": "^1.1.0"
+	},
+	"dependencies": {
+		"jose": "^6.2.12"
 	}
 }

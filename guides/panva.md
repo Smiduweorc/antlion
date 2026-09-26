@@ -79,9 +79,9 @@ accessToken = Lacewing access-token profile
 
 dpop = Antlion profile
   token:  accessToken
-  origin: the public origin clients call, as they spell it
+  origin: the public origin clients call, as a URL parser prints it
   replay: a shared store once there is more than one node
-  nonce:  "required" | "off"
+  nonce:  "required" (with nonceSecrets) | "off"
 ```
 
 The access-token `algorithms` are whatever `oidc-provider` signs tokens with,

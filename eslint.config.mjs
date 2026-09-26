@@ -33,6 +33,34 @@ export default tseslint.config(
 				"warn",
 				{ allowExpressions: true },
 			],
+			// Verifying against a key carried in the JWT's own header is right
+			// for a DPoP proof and a forgery for an access token (AL-key.1).
+			"no-restricted-imports": [
+				"error",
+				{
+					paths: [
+						{
+							name: "jose",
+							importNames: ["EmbeddedJWK"],
+							message: "EmbeddedJWK belongs to src/proof.ts alone.",
+						},
+					],
+				},
+			],
+		},
+	},
+	{
+		files: ["src/proof.ts"],
+		rules: {
+			"no-restricted-imports": "off",
+		},
+	},
+	{
+		// The compliance gate and its runner are CLIs: printing to the console
+		// is their whole job.
+		files: ["tools/**/*.ts"],
+		rules: {
+			"no-console": "off",
 		},
 	}
 );

@@ -41,10 +41,11 @@ Antlion adds refusals to it without loosening a single one of Lacewing's.
   refusal.
 - **The order of all of the above**, which is fixed: cheap checks, then
   signatures, then the binding, then the store.
-- **The refusal on the wire.** The 401, `WWW-Authenticate: DPoP` with the
-  right error, and `DPoP-Nonce` when a nonce is due. The client is told
-  `invalid_token` or `invalid_dpop_proof`; you are told exactly which check
-  failed.
+- **The refusal on the wire.** The 401 (or 400 for a duplicated or
+  malformed `Authorization` header), `WWW-Authenticate: DPoP` with the right
+  error and the accepted algorithms, and `DPoP-Nonce` with
+  `Cache-Control: no-store` when a nonce is due. The client is told the RFC
+  error value; you are told exactly which check failed.
 - **The header names** a browser client needs in your CORS policy, as
   exported constants.
 
@@ -59,7 +60,7 @@ Antlion adds refusals to it without loosening a single one of Lacewing's.
 | Accepting `Bearer` on a DPoP route | An endpoint that accepts both is only as strong as `Bearer`, so the binding protects nothing. | Two routes, two profiles: a plain Lacewing profile for the old traffic, an Antlion profile for the new, chosen by your router rather than by the client. |
 | Working out the request URL | `Host`, `X-Forwarded-*` and `Forwarded` are set by the client or by the nearest proxy. An `htu` checked against them checks the attacker's own claim. | `origin`, required. |
 | Deciding whether nonces are on | A nonce costs a round trip and closes pre-generated proofs. Which matters more is a property of your clients and your threat model. | `nonce: "required" \| "off"`, required, with no default. |
-| Choosing the replay store | Twenty nodes with twenty memory stores accept the same proof twenty times. Only your deployment knows what is shared. | A store you pass in. The contract is one atomic `addIfAbsent`: `SET NX PX` in Redis, `INSERT ... ON CONFLICT DO NOTHING` in Postgres. |
+| Choosing the replay store | Twenty nodes with twenty memory stores accept the same proof twenty times. Only your deployment knows what is shared. | A store you pass in. The contract is one atomic `addIfAbsent`: `SET key 1 NX EX ttlSeconds` in Redis, `INSERT ... ON CONFLICT DO NOTHING` in Postgres. |
 | mTLS (RFC 8705) | A different binding at a different layer, which needs the client certificate to reach the service. | Not here. |
 | Opaque tokens and introspection | A JWT access token carries `cnf.jkt` itself. Introspection is a network call and a cache, with failure modes of its own. | Out of v1, and possibly for good. |
 | Protecting a compromised client | Code running inside the client can use the key to sign fresh proofs. No check on the server can tell that apart from the real client. | The client: non-extractable WebCrypto keys, a content security policy, and not getting XSS'd. |
@@ -78,8 +79,9 @@ JavaScript process and in no other situation. The store contract is written so
 that moving to Redis or Postgres is a constructor change, and the package
 will not pretend a memory store is anything else.
 
-Nonces are the other half of this. They are an HMAC over a time window rather
-than a list the server remembers, so every node that holds the same secret
+Nonces are the other half of this. Each is an HMAC over the second it was
+issued, rather than an entry in a list the server remembers, so every node
+that holds the same secret
 accepts the same nonces, and rotating the secret is a configuration change
 rather than a migration.
 

@@ -49,23 +49,94 @@ What follows from that:
 - **Cheap checks run before expensive ones, and the store runs last.** Nothing unauthenticated reaches the replay store, so garbage can't be used to fill it or probe it.
 - **The key in a proof header is trusted for the proof and nowhere else.** Verifying against an embedded key happens in exactly one internal module, and the access token never goes near it.
 - **The algorithms are the FAPI 2.0 set:** `PS256`, `ES256`, and Ed25519 under either `EdDSA` or its fully-specified RFC 9864 name `Ed25519`, which is what panva's clients send. `none` and HMAC can't be expressed. `RS256` exists only behind an explicit legacy import, the same way Lacewing does it.
-- **Antlion writes the refusal.** A 401 with a spec-correct `WWW-Authenticate: DPoP` and, when nonces are on, a `DPoP-Nonce`. The caller sees `invalid_token` or `invalid_dpop_proof` and nothing more; the precise reason comes back to you as a typed code for your own logs.
+- **Antlion writes the refusal.** A 401 with a spec-correct `WWW-Authenticate: DPoP` challenge that lists the accepted algorithms, plus `DPoP-Nonce` and `Cache-Control: no-store` when the client needs a fresh nonce. A duplicated or malformed `Authorization` header is a 400 `invalid_request`, as RFC 6750 asks. The client sees one of `invalid_request`, `invalid_token`, `invalid_dpop_proof` or `use_dpop_nonce` and nothing more; the precise reason comes back to you as a typed code for your own logs.
 
 ## What you decide
 
 A DPoP profile wraps the Lacewing profile you already have. Four things have no default, because only you know the answer:
 
 ```text
-dpopProfile:
-  token:   your Lacewing access-token profile (at+jwt)
+defineDPoPProfile:
+  token:   your Lacewing access-token profile
   origin:  "https://api.example.com"
-  replay:  a store with one atomic addIfAbsent(key, ttl)
-  nonce:   "required" | "off"
+  replay:  a store with one atomic addIfAbsent(key, ttlSeconds)
+  nonce:   "required" (with nonceSecrets) | "off"
 ```
 
-- **The origin** is the one your clients sign against. `htu` is compared to it exactly, after RFC 3986 normalisation, with the query and fragment removed.
-- **The replay store** holds each proof's `jti` for as long as a proof could still be fresh. The in-memory store is for one process and for tests, and its name says so. Across a fleet, the store is `SET NX PX` in Redis or `INSERT ... ON CONFLICT DO NOTHING` in Postgres. If the store errors, the request is refused.
-- **Nonces** are a trade. `"required"` costs an extra round trip whenever a client needs a fresh nonce, and stops proofs being generated ahead of time with a lying clock. `"off"` trusts the client's `iat`. When they are on, nonces are stateless (an HMAC over a time window), so every node accepts the same ones and the secret can be rotated.
+- **The origin** is the one your clients sign against, written the way a URL parser prints it: lowercase host, no default port, no trailing slash. `htu` must equal it plus the request's path, after RFC 3986 normalisation, with the query and fragment removed. Anything else is refused when the profile is built, with a message saying what you meant.
+- **The replay store** holds each proof's key thumbprint and a hash of its `jti` for as long as the proof could still be fresh (`maxProofAge` plus six seconds). `SingleProcessReplayStore` is for one process and for tests, and its name says so; it also needs a `maxEntries`, and when it is full it refuses requests rather than forget a proof early. Across a fleet, the store is `SET key 1 NX EX ttlSeconds` in Redis or `INSERT ... ON CONFLICT DO NOTHING` in Postgres. If the store errors, the request is refused.
+- **Nonces** are a trade. `"required"` costs an extra round trip whenever a client's nonce is stale, and stops proofs being generated ahead of time with a lying clock. `"off"` trusts the client's `iat`. When they are on, a nonce is an HMAC over the second it was issued and the origin, valid for `maxProofAge`, so nothing is stored, every node with the same `nonceSecrets` accepts the same nonces, and rotating is putting a new secret first in the list.
+
+One more setting has a default, and it is the strict one. `maxProofAge`, how old a proof's `iat` may be, is 60 seconds and can be raised to 300 at most, which is what oauth4webapi allows. A client clock running up to 5 seconds ahead is accepted, and that is not configurable.
+
+## Quick start
+
+1. Install it next to Lacewing:
+
+   ```sh
+   npm install antlion-lacewing lacewing
+   ```
+
+2. Build the profile once, next to the Lacewing profile it wraps:
+
+   ```ts
+   import { accessTokenProfile } from "lacewing";
+   import { defineDPoPProfile, SingleProcessReplayStore } from "antlion-lacewing";
+
+   const dpop = defineDPoPProfile({
+   	token: accessTokenProfile({
+   		issuer: "https://auth.example.com",
+   		audience: "https://api.example.com",
+   		algorithms: ["ES256"],
+   		keys: { jwksUri: "https://auth.example.com/jwks" },
+   	}),
+   	origin: "https://api.example.com",
+   	replay: new SingleProcessReplayStore({ maxEntries: 100_000 }),
+   	nonce: "off",
+   });
+   ```
+
+3. Verify every request, and send the refusal Antlion wrote when it says no:
+
+   ```ts
+   import { AntlionError, verifyDPoPRequest } from "antlion-lacewing";
+
+   async function handle(request: Request): Promise<Response> {
+   	try {
+   		const { token } = await verifyDPoPRequest(request, dpop);
+   		return Response.json({ hello: token.payload.sub });
+   	} catch (error) {
+   		if (error instanceof AntlionError && error.refusal !== undefined) {
+   			// error.code says which check failed. Log it; don't send it.
+   			return new Response(null, error.refusal);
+   		}
+   		throw error;
+   	}
+   }
+   ```
+
+   On Node's own `http`, Express, Fastify or Koa, pass `{ method: req.method, url: req.url, headers }` with `headers` built from `req.headersDistinct`. Node keeps only the first of two `Authorization` headers in `req.headers`, so a duplicate would never be seen:
+
+   ```ts
+   const headers = new Headers();
+   for (const [name, values] of Object.entries(req.headersDistinct)) {
+   	for (const value of values ?? []) headers.append(name, value);
+   }
+   ```
+
+4. Past one process, give every process the same store. With node-redis:
+
+   ```ts
+   import type { ReplayStore } from "antlion-lacewing";
+
+   const replay: ReplayStore = {
+   	async addIfAbsent(key, ttlSeconds) {
+   		return (await redis.set(`dpop:${key}`, "1", { NX: true, EX: ttlSeconds })) === "OK";
+   	},
+   };
+   ```
+
+5. To turn nonces on, pass `nonce: "required"` and `nonceSecrets: [secret]`, where `secret` is at least 32 random bytes (`crypto.getRandomValues(new Uint8Array(32))`, stored where your other secrets are) and is the same on every node. A verified request then carries `nextNonce`; send it back as `DPoP-Nonce` with `Cache-Control: no-store`, and clients never wait for a 401 to learn it.
 
 ## What DPoP does, and what it does not
 
@@ -104,7 +175,11 @@ Antlion reads the headers, verifies the proof, hands the token to your Lacewing 
 
 - **It needs Lacewing 1.1.0 or later.** Antlion shares Lacewing's algorithm registry, header reading and duration parsing through the `lacewing/extension` export, so the two can't drift apart. That export, and the `Ed25519` registry entry next to `EdDSA`, first shipped in 1.1.0.
 - **JWT access tokens only.** Opaque tokens and introspection are out of v1, and may stay out.
-- **Browsers need CORS.** A browser client has to be allowed to send `DPoP` and to read `DPoP-Nonce`. Antlion exports the header names; the CORS policy is yours.
+- **Browsers need CORS.** A browser client has to be allowed to send `DPoP` and to read `DPoP-Nonce` and `WWW-Authenticate`. `DPOP_REQUEST_HEADERS` goes in `Access-Control-Allow-Headers` and `DPOP_RESPONSE_HEADERS` in `Access-Control-Expose-Headers`; the rest of the CORS policy is yours.
+- **Exactly one space after `DPoP`.** RFC 9449's ABNF allows one or more; Antlion accepts one, as Lacewing's Bearer parser does, and answers anything else with a 400. The scheme name itself matches in any case.
+- **Node drops a duplicate `Authorization` header.** `req.headers` keeps the first one, so build `Headers` from `req.headersDistinct` (see the quick start), or a second header goes unnoticed.
+- **A throwing `claimValidators` function is a refused token.** Lacewing counts it as a failed claim, so it arrives as `token-invalid` with your error at the end of the `cause` chain. An error from your own code that Lacewing does not catch, such as a `KeySource` you wrote or the `now` clock, comes back unchanged.
+- **Two clocks.** The profile's `now` drives proof freshness and nonces. The access token's `exp` and age are Lacewing's, on `Date.now`.
 - **No benchmarks yet.** There is no public harness, so there is no performance claim.
 
 ## Why Antlion exists
@@ -135,6 +210,8 @@ Each of those is either impossible to express in Antlion or enforced on every re
 | `npm run lint` | Run ESLint. |
 | `npm run lint:fix` | Run ESLint and fix what it can. |
 | `npm test` | Run the test suite with the Node test runner via `tsx`. |
+| `npm run test:dist` | Build, then test the built package through its `exports` map. |
+| `npm run compliance` | Run the suite and fail if any requirement in `tests/compliance/requirements.json` has no passing test; writes `compliance-report.md`. |
 | `npm run docs` | Generate the API reference into `docs/` with TypeDoc. |
 | `npm run changelog` | Regenerate `CHANGELOG.md` from the commit history. |
 

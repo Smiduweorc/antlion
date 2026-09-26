@@ -3,6 +3,8 @@
 /src
 /tests
 /index.ts
+/legacy.ts
+/tools
 /docs
 node_modules
 eslint*
