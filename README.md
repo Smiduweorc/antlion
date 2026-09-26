@@ -233,7 +233,7 @@ Each of those is either impossible to express in Antlion or enforced on every re
 | `npm run docs` | Generate the API reference into `docs/` with TypeDoc. |
 | `npm run changelog` | Regenerate `CHANGELOG.md` from the commit history. |
 
-> Publishing and deployment are handled manually (custom npm settings), so no release/publish workflow is included here.
+> Publishing and deployment are handled manually (custom npm settings), so no release/publish workflow is included here. `npm publish` runs lint, typecheck, the tests, the compliance gate and the built-artifact tests first (`prepublishOnly`), and stops if any of them fails.
 
 ## License
 

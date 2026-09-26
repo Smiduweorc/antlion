@@ -38,7 +38,8 @@
 		"bench": "node --import tsx tools/bench.ts",
 		"docs": "typedoc",
 		"changelog": "git-cliff -o CHANGELOG.md",
-		"prepare": "lefthook install"
+		"prepare": "lefthook install",
+		"prepublishOnly": "npm run lint && npm run typecheck && npm test && npm run compliance && npm run test:dist"
 	},
 	"keywords": [
 		"dpop",
