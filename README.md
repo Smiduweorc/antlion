@@ -173,7 +173,7 @@ Antlion reads the headers, verifies the proof, hands the token to your Lacewing 
 
 ## Known quirks
 
-- **It needs Lacewing 1.1.0 or later.** Antlion shares Lacewing's algorithm registry, header reading and duration parsing through the `lacewing/extension` export, so the two can't drift apart. That export, and the `Ed25519` registry entry next to `EdDSA`, first shipped in 1.1.0.
+- **It needs Lacewing 1.2.0 or later.** Antlion shares Lacewing's algorithm registry, header reading, duration parsing and strict JSON reading through the `lacewing/extension` export, so the two can't drift apart. `parseJsonObject`, which refuses a proof that names a member twice, first shipped in 1.2.0.
 - **JWT access tokens only.** Opaque tokens and introspection are out of v1, and may stay out.
 - **Browsers need CORS.** A browser client has to be allowed to send `DPoP` and to read `DPoP-Nonce` and `WWW-Authenticate`. `DPOP_REQUEST_HEADERS` goes in `Access-Control-Allow-Headers` and `DPOP_RESPONSE_HEADERS` in `Access-Control-Expose-Headers`; the rest of the CORS policy is yours.
 - **Node drops a duplicate `Authorization` header.** `req.headers` keeps the first one, so build `Headers` from `req.headersDistinct` (see the quick start), or a second header goes unnoticed.

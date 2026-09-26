@@ -336,3 +336,23 @@ test("[AL-hdr.4] harmless extra header parameters, such as kid, are accepted", a
 	const proof = await proofFor(key, token, { header: { kid: "client-key-1", cty: "x" } });
 	assert.equal((await verifyDPoPRequest(request(token, proof), profile())).jkt, key.jkt);
 });
+
+test("[AL-hdr.5] [9449-4.3.2] a proof that names a header or claim member twice is refused, even correctly signed", async () => {
+	const { key, token } = await bound();
+	const header = `{"typ":"dpop+jwt","alg":"ES256","jwk":${JSON.stringify(key.jwk)}}`;
+	const claims = `"jti":"j","htm":"GET","iat":${T0 / 1000},"ath":"${await ath(token)}"`;
+	const cases: [string, string][] = [
+		[`{"typ":"dpop+jwt","alg":"ES256","alg":"ES256","jwk":${JSON.stringify(key.jwk)}}`, `{${claims},"htu":"${URL_}"}`],
+		[`{"typ":"dpop+jwt","alg":"ES256","jwk":{"kty":"EC","kty":"EC","crv":"P-256","x":"${key.jwk.x}","y":"${key.jwk.y}"}}`, `{${claims},"htu":"${URL_}"}`],
+		[header, `{${claims},"htu":"https://evil.example.com/","htu":"${URL_}"}`],
+		[header, `{${claims},"htu":"https://evil.example.com/","\\u0068tu":"${URL_}"}`],
+	];
+	for (const [h, p] of cases) {
+		const proof = await signRaw(key, Buffer.from(h).toString("base64url"), Buffer.from(p).toString("base64url"));
+		const error = await refused(verifyDPoPRequest(request(token, proof), profile()), "malformed-proof");
+		assert.match(error.message, /names a member twice/);
+		assert.equal((error.cause as { code?: string }).code, "JWT_INVALID");
+	}
+	const single = await signRaw(key, Buffer.from(header).toString("base64url"), Buffer.from(`{${claims},"htu":"${URL_}"}`).toString("base64url"));
+	assert.equal((await verifyDPoPRequest(request(token, single), profile())).jkt, key.jkt);
+});

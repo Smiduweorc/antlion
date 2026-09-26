@@ -59,7 +59,7 @@
 		"eslint": "^10.11.0",
 		"fast-check": "^4.10.2",
 		"git-cliff": "^2.14.2",
-		"lacewing": "^1.1.0",
+		"lacewing": "^1.2.0",
 		"lefthook": "^2.1.14",
 		"oauth4webapi": "^3.8.8",
 		"tsx": "^4.23.15",
@@ -68,7 +68,7 @@
 		"typescript-eslint": "^8.70.1"
 	},
 	"peerDependencies": {
-		"lacewing": "^1.1.0"
+		"lacewing": "^1.2.0"
 	},
 	"dependencies": {
 		"jose": "^6.2.12"

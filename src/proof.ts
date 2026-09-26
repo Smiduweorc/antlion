@@ -13,7 +13,7 @@
  */
 
 import { calculateJwkThumbprint, compactVerify, EmbeddedJWK } from "jose";
-import { getAlgorithmProperties } from "lacewing/extension";
+import { getAlgorithmProperties, parseJsonObject } from "lacewing/extension";
 import { decodeCanonical } from "./base64url.js";
 import { AntlionError } from "./errors.js";
 import { normalizeHtu } from "./htu.js";
@@ -58,16 +58,24 @@ function malformed(message: string): AntlionError {
 function decodeJsonObject(segment: string, what: string): Record<string, unknown> {
 	const bytes = decodeCanonical(segment);
 	if (bytes === undefined) throw malformed(`DPoP proof ${what} is not canonical base64url`);
-	let parsed: unknown;
+	let text: string;
 	try {
-		parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes));
+		text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
 	} catch (cause) {
-		throw new AntlionError("malformed-proof", `DPoP proof ${what} is not UTF-8 JSON`, { cause });
+		throw new AntlionError("malformed-proof", `DPoP proof ${what} is not UTF-8`, { cause });
 	}
-	if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-		throw malformed(`DPoP proof ${what} is not a JSON object`);
+	// Lacewing's reader, so a proof and a token agree on what JSON is: a
+	// plain object, and no member named twice. With two `htu` members, which
+	// one counts would otherwise be whatever JSON.parse happened to keep.
+	try {
+		return parseJsonObject(text, what);
+	} catch (cause) {
+		throw new AntlionError(
+			"malformed-proof",
+			`DPoP proof ${what} is not a JSON object, or names a member twice`,
+			{ cause }
+		);
 	}
-	return parsed as Record<string, unknown>;
 }
 
 // RFC 7515 section 4.1.9: the "application/" prefix may be left off, and

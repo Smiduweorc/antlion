@@ -56,6 +56,7 @@
 		{ "id": "AL-hdr.1", "level": "MUST", "mechanism": "runtime", "summary": "The proof typ is enforced." },
 		{ "id": "AL-hdr.2", "level": "MUST", "mechanism": "runtime", "summary": "Two DPoP or two Authorization headers, joined by Headers with a comma, are refused." },
 		{ "id": "AL-hdr.3", "level": "MUST", "mechanism": "runtime", "summary": "The DPoP scheme is matched in any case and followed by one or more spaces and one token68 (RFC 9449 figure 12)." },
+		{ "id": "AL-hdr.5", "level": "MUST", "mechanism": "runtime", "summary": "A proof header or payload that names a member twice, at any depth, is refused, read by Lacewing's own parser." },
 		{ "id": "AL-hdr.4", "level": "MUST", "mechanism": "runtime", "summary": "Header parameters that name another key or change JWS processing are refused." },
 		{ "id": "AL-req.1", "level": "MUST", "mechanism": "design", "summary": "htu is compared exactly against the configured origin plus the request path; Host and forwarding headers are never read." },
 		{ "id": "AL-req.2", "level": "MUST", "mechanism": "runtime", "summary": "htm is compared exactly, case included." },
