@@ -1,4 +1,4 @@
-# antlion [WIP]
+# antlion
 
 ![antlion logo](https://github.com/Smiduweorc/antlion/blob/master/assets/logo.png?raw=true)
 
@@ -7,8 +7,6 @@
 It implements the resource-server side of [RFC 9449 (DPoP)](https://datatracker.ietf.org/doc/html/rfc9449), with the algorithm set from the FAPI 2.0 Security Profile. A token stolen off the wire, out of a log, or from a proxy is useless to anyone who does not also hold the client's private key. It does not create proofs, run an authorization server, or read client certificates.
 
 Lacewing is a peer dependency, and the access token is still verified by a Lacewing profile. [jose](https://github.com/panva/jose) is the one direct dependency, used only for the proof. Nothing happens at import time.
-
-> **Status:** not released. This project is still a work in progress and most of my commits are in my gitlabs server.
 
 ## Antlion is not for you if you
 
