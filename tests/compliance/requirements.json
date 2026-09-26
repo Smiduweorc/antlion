@@ -73,6 +73,7 @@
 		{ "id": "AL-err.1", "level": "MUST", "mechanism": "runtime", "summary": "The client sees only the RFC error value; the precise reason is a typed code, and messages never repeat request content." },
 		{ "id": "AL-err.2", "level": "MUST", "mechanism": "runtime", "summary": "An error from the caller's own code that Lacewing does not catch passes through unchanged; only Antlion's and Lacewing's refusals become AntlionErrors." },
 		{ "id": "AL-opt.1", "level": "MUST", "mechanism": "runtime", "summary": "Every profile and store option is validated at construction, with a message naming the fix." },
+		{ "id": "AL-node.1", "level": "MUST", "mechanism": "runtime", "summary": "The Node adapter sees duplicate headers through headersDistinct and the path the client signed under Express routers, Fastify prefixes and koa-mount." },
 		{ "id": "AL-cors.1", "level": "SHOULD", "mechanism": "docs", "summary": "The header names a browser client needs in CORS are exported and documented." },
 		{ "id": "AL-scope.1", "level": "SHOULD", "mechanism": "docs", "summary": "The docs say DPoP does not protect a compromised client, hide the token, or work without state." }
 	]
