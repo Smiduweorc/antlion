@@ -115,13 +115,14 @@ One more setting has a default, and it is the strict one. `maxProofAge`, how old
    }
    ```
 
-   On Node's own `http`, Express, Fastify or Koa, pass `{ method: req.method, url: req.url, headers }` with `headers` built from `req.headersDistinct`. Node keeps only the first of two `Authorization` headers in `req.headers`, so a duplicate would never be seen:
+   On Node's own `http`, Express, Fastify or Koa, build the request with `fromNodeRequest` from `antlion-lacewing/node`. It reads `req.headersDistinct`, because `req.headers` hides a second `Authorization` header, and the path the client signed, which a mounted router rewrites. [Frameworks](./guides/frameworks.md) has each one:
 
    ```ts
-   const headers = new Headers();
-   for (const [name, values] of Object.entries(req.headersDistinct)) {
-   	for (const value of values ?? []) headers.append(name, value);
-   }
+   import { fromNodeRequest } from "antlion-lacewing/node";
+
+   await verifyDPoPRequest(fromNodeRequest(req), dpop);                     // node:http, Express
+   await verifyDPoPRequest(fromNodeRequest(request.raw), dpop);             // Fastify
+   await verifyDPoPRequest(fromNodeRequest(ctx.req, ctx.originalUrl), dpop); // Koa
    ```
 
 4. Past one process, give every process the same store. With node-redis:
@@ -154,6 +155,7 @@ People expect more from DPoP than it gives, and then expect it from Antlion.
 | --- | --- |
 | [Boundaries](./guides/boundaries.md) | What Antlion owns, what it will never do, and where that work goes |
 | [With panva's tools](./guides/panva.md) | `oidc-provider` and `openid-client` around Antlion, what has to match, and when to use `oauth4webapi` instead |
+| [Frameworks](./guides/frameworks.md) | A WHATWG `Request`, Node's `http`, Express, Fastify and Koa: building the request and sending the refusal |
 
 ## Where it sits
 
@@ -176,10 +178,26 @@ Antlion reads the headers, verifies the proof, hands the token to your Lacewing 
 - **It needs Lacewing 1.2.0 or later.** Antlion shares Lacewing's algorithm registry, header reading, duration parsing and strict JSON reading through the `lacewing/extension` export, so the two can't drift apart. `parseJsonObject`, which refuses a proof that names a member twice, first shipped in 1.2.0.
 - **JWT access tokens only.** Opaque tokens and introspection are out of v1, and may stay out.
 - **Browsers need CORS.** A browser client has to be allowed to send `DPoP` and to read `DPoP-Nonce` and `WWW-Authenticate`. `DPOP_REQUEST_HEADERS` goes in `Access-Control-Allow-Headers` and `DPOP_RESPONSE_HEADERS` in `Access-Control-Expose-Headers`; the rest of the CORS policy is yours.
-- **Node drops a duplicate `Authorization` header.** `req.headers` keeps the first one, so build `Headers` from `req.headersDistinct` (see the quick start), or a second header goes unnoticed.
+- **Node drops a duplicate `Authorization` header.** `req.headers` keeps the first one. `fromNodeRequest` reads `req.headersDistinct` instead; if you build the request yourself, do the same, or a second header goes unnoticed.
 - **A throwing `claimValidators` function is a refused token.** Lacewing counts it as a failed claim, so it arrives as `token-invalid` with your error at the end of the `cause` chain. An error from your own code that Lacewing does not catch, such as a `KeySource` you wrote or the `now` clock, comes back unchanged.
 - **Two clocks.** The profile's `now` drives proof freshness and nonces. The access token's `exp` and age are Lacewing's, on `Date.now`.
-- **No benchmarks yet.** There is no public harness, so there is no performance claim.
+- **The numbers below are from one laptop.** Re-run them with `npm run bench`, or on a GitHub runner with the Bench workflow.
+
+## Performance
+
+`npm run bench` times `verifyDPoPRequest` one request at a time, on one core, with `SingleProcessReplayStore`. Proofs are signed beforehand, so what is timed is verifying the proof, the ES256 access token through Lacewing, the binding, and the store write. On Node 26.10, Linux, an Intel Core 7 350:
+
+| Request | Per second | p50 | p99 |
+| --- | ---: | ---: | ---: |
+| accepted, ES256 proof | 2,595 | 0.337 ms | 0.976 ms |
+| accepted, Ed25519 proof | 3,097 | 0.299 ms | 0.742 ms |
+| accepted, PS256 proof | 2,966 | 0.304 ms | 0.735 ms |
+| accepted, ES256 proof, nonces on | 2,406 | 0.373 ms | 0.898 ms |
+| refused: Bearer scheme | 42,431 | 0.019 ms | 0.036 ms |
+| refused: htu mismatch, before any signature | 46,217 | 0.020 ms | 0.035 ms |
+| refused: bad proof signature | 4,019 | 0.210 ms | 0.601 ms |
+
+Two runs on this machine differed by under 6% on accepted requests and by up to 40% on the cheapest refusals, which finish in tens of microseconds and feel every scheduler hiccup. A request that fails before any signature costs about a sixteenth of one that verifies, which is the point of the fixed order. A shared store over the network adds its round trip to every accepted request, and nothing here measures that.
 
 ## Why Antlion exists
 
@@ -210,6 +228,7 @@ Each of those is either impossible to express in Antlion or enforced on every re
 | `npm run lint:fix` | Run ESLint and fix what it can. |
 | `npm test` | Run the test suite with the Node test runner via `tsx`. |
 | `npm run test:dist` | Build, then test the built package through its `exports` map. |
+| `npm run bench` | Time verification and early refusals, and print a Markdown table with the machine it ran on. |
 | `npm run compliance` | Run the suite and fail if any requirement in `tests/compliance/requirements.json` has no passing test; writes `compliance-report.md`. |
 | `npm run docs` | Generate the API reference into `docs/` with TypeDoc. |
 | `npm run changelog` | Regenerate `CHANGELOG.md` from the commit history. |

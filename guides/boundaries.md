@@ -20,7 +20,8 @@ Antlion adds refusals to it without loosening a single one of Lacewing's.
 - **Reading the two headers.** Exactly one `Authorization: DPoP` and exactly
   one `DPoP`. A second copy of either is a refusal, and so is the `Bearer`
   scheme. Two headers joined by `Headers` into one value are detectable,
-  because a compact JWS never contains a comma.
+  because a compact JWS never contains a comma. On Node, `fromNodeRequest`
+  reads them from `headersDistinct`, where a second copy is still visible.
 - **The proof.** `typ` is `dpop+jwt`. `alg` is on the allowlist and matches
   the key's type and curve. The key is public, and a proof carrying private
   key members is refused. The signature is checked against the key in the
@@ -85,8 +86,8 @@ that holds the same secret
 accepts the same nonces, and rotating the secret is a configuration change
 rather than a migration.
 
-## No benchmarks yet
+## Numbers
 
-There is no performance claim here, because there is no public harness behind
-one yet. When there is, it will run on ordinary CI hardware and the numbers
-will be reproducible.
+The README's performance table comes from `npm run bench`, and the Bench
+workflow runs the same script on a GitHub runner. A number without that
+script behind it is not a claim this project makes.

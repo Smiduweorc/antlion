@@ -1,7 +1,7 @@
 {
 	"$schema": "https://typedoc.org/schema.json",
-	"entryPoints": ["index.ts", "legacy.ts"],
-	"projectDocuments": ["guides/boundaries.md", "guides/panva.md"],
+	"entryPoints": ["index.ts", "legacy.ts", "node.ts"],
+	"projectDocuments": ["guides/boundaries.md", "guides/panva.md", "guides/frameworks.md"],
 	"out": "docs",
 	"includeVersion": true,
 	"excludePrivate": true,
