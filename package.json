@@ -35,6 +35,7 @@
 		"test": "node --import tsx --test \"tests/**/*.test.ts\"",
 		"test:dist": "npm run build && node --test \"tests/dist/*.test.js\"",
 		"compliance": "node --import tsx tools/run-compliance.ts",
+		"bench": "node --import tsx tools/bench.ts",
 		"docs": "typedoc",
 		"changelog": "git-cliff -o CHANGELOG.md",
 		"prepare": "lefthook install"

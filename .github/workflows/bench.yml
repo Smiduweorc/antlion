@@ -1,0 +1,28 @@
+name: Bench
+
+# Run by hand, so the README's numbers can be re-run on hardware anyone can
+# get. The table lands in the run's summary.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Benchmark
+        run: npm run bench | tee -a "$GITHUB_STEP_SUMMARY"
