@@ -122,11 +122,19 @@ test("[AL-hdr.3] the DPoP scheme matches in any case", async () => {
 	}
 });
 
-test("[AL-hdr.3] anything but one space and one token68 after the scheme is a 400 invalid_request", async () => {
+test("[AL-hdr.3] one or more spaces may follow the scheme, as RFC 9449 figure 12 writes it", async () => {
+	const { key, token } = await bound();
+	for (const gap of [" ", "  ", "     "]) {
+		const req = request(null, await proofFor(key, token), { headers: [["authorization", `DPoP${gap}${token}`]] });
+		assert.equal((await verifyDPoPRequest(req, profile())).jkt, key.jkt, JSON.stringify(gap));
+	}
+});
+
+test("[AL-hdr.3] anything but spaces and one token68 after the scheme is a 400 invalid_request", async () => {
 	const { token, proof } = await bound();
 	for (const value of [
-		`DPoP  ${token}`,
 		`DPoP\t${token}`,
+		`DPoP \t${token}`,
 		` DPoP ${token}`,
 		`DPoP ${token} `,
 		`DPoP ${token} extra`,

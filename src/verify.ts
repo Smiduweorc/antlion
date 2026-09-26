@@ -5,7 +5,7 @@
  *
  * | Step | Check | Code on failure |
  * | --- | --- | --- |
- * | 1 | exactly one `Authorization: DPoP <token>` | `missing-authorization`, `bearer-scheme`, `duplicate-authorization`, `malformed-authorization` |
+ * | 1 | exactly one `Authorization: DPoP <token>` header | `missing-authorization`, `bearer-scheme`, `duplicate-authorization`, `malformed-authorization` |
  * | 2 | exactly one `DPoP` header | `missing-proof`, `duplicate-proof` |
  * | 3 | proof size, shape, `typ`, `alg`, key, claims | `malformed-proof`, `proof-typ`, `proof-algorithm`, `proof-key` |
  * | 4 | `htm`, then `htu` | `htm-mismatch`, `htu-mismatch` |
@@ -63,9 +63,9 @@ export type DPoPVerifiedJwt = {
 	readonly nextNonce: string | undefined;
 } & { readonly __brand: "DPoPVerifiedJwt" };
 
-// RFC 9449 figure 12: the scheme, matched in any case (RFC 9110 section
-// 11.1), exactly one space, and a token68.
-const DPOP_CREDENTIALS = /^DPoP ([A-Za-z0-9\-._~+/]+=*)$/i;
+// RFC 9449 figure 12, `"DPoP" 1*SP token68`, with the scheme matched in any
+// case (RFC 9110 section 11.1). SP is a space; a tab is not one.
+const DPOP_CREDENTIALS = /^DPoP +([A-Za-z0-9\-._~+/]+=*)$/i;
 // Lacewing's cap on an Authorization header.
 const MAX_AUTHORIZATION_LENGTH = 16384;
 
@@ -153,7 +153,7 @@ function readToken(request: DPoPRequest): string {
 	}
 	const match = DPOP_CREDENTIALS.exec(value);
 	if (match === null) {
-		throw new AntlionError("malformed-authorization", "Authorization header is not exactly \"DPoP <token>\"");
+		throw new AntlionError("malformed-authorization", "Authorization header is not \"DPoP <token>\"");
 	}
 	return match[1] as string;
 }
