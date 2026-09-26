@@ -1,9 +1,15 @@
 {
 	"$schema": "https://typedoc.org/schema.json",
 	"entryPoints": ["index.ts"],
+	"projectDocuments": ["guides/boundaries.md", "guides/panva.md"],
 	"out": "docs",
 	"includeVersion": true,
 	"excludePrivate": true,
 	"excludeInternal": true,
-	"readme": "README.md"
+	"readme": "README.md",
+	"treatWarningsAsErrors": true,
+	"navigationLinks": {
+		"GitHub": "https://github.com/Smiduweorc/antlion",
+		"Smiduweorc": "https://smiduweorc.github.io/"
+	}
 }

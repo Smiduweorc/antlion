@@ -102,7 +102,7 @@ Antlion reads the headers, verifies the proof, hands the token to your Lacewing 
 
 ## Known quirks
 
-- **It needs a Lacewing that doesn't exist yet.** Antlion shares Lacewing's algorithm registry, header reading and duration parsing through a small, versioned `lacewing/extension` export, so the two can't drift apart. That export has to ship in Lacewing first, and Lacewing's registry needs an `Ed25519` entry next to `EdDSA`.
+- **It needs Lacewing 1.1.0 or later.** Antlion shares Lacewing's algorithm registry, header reading and duration parsing through the `lacewing/extension` export, so the two can't drift apart. That export, and the `Ed25519` registry entry next to `EdDSA`, first shipped in 1.1.0.
 - **JWT access tokens only.** Opaque tokens and introspection are out of v1, and may stay out.
 - **Browsers need CORS.** A browser client has to be allowed to send `DPoP` and to read `DPoP-Nonce`. Antlion exports the header names; the CORS policy is yours.
 - **No benchmarks yet.** There is no public harness, so there is no performance claim.
@@ -139,6 +139,14 @@ Each of those is either impossible to express in Antlion or enforced on every re
 | `npm run changelog` | Regenerate `CHANGELOG.md` from the commit history. |
 
 > Publishing and deployment are handled manually (custom npm settings), so no release/publish workflow is included here.
+
+## License
+
+MIT
+
+## Attribution
+
+Antlion depends on and includes code adapted from the [jose](https://github.com/panva/jose) library, created by Filip Skokan (panva). The same credit is in [NOTICE.md](./NOTICE.md), which ships with the package. We are grateful for their work!
 
 ## Lore
 
