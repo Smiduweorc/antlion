@@ -52,8 +52,14 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Compliance gate
+        run: npm run compliance
+
       - name: Build project
         run: npm run build
+
+      - name: Test the built artifact
+        run: npm run test:dist
 
       - name: Generate API docs
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24.x'
@@ -65,3 +71,10 @@ jobs:
         with:
           name: dist
           path: dist/
+
+      - name: Upload compliance report
+        uses: actions/upload-artifact@v7
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24.x' && always()
+        with:
+          name: compliance-report
+          path: compliance-report.md
