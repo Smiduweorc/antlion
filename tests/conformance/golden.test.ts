@@ -1,7 +1,9 @@
 /**
- * Proofs Antlion did not make: the worked examples in RFC 9449, and proofs
+ * Proofs Antlion did not make: the worked examples in RFC 9449, proofs
  * signed by python-cryptography with thumbprints computed in Python
- * (tools/golden/pyca_dpop.py). They go through the proof module directly,
+ * (tools/golden/pyca_dpop.py), and proofs made by Nimbus OAuth 2.0 SDK's
+ * DefaultDPoPProofFactory with thumbprints computed by Nimbus
+ * (tools/golden/nimbus/NimbusDPoP.java). They go through the proof module directly,
  * because their `iat` is fixed and their tokens were never issued by a
  * Lacewing profile.
  */
@@ -82,14 +84,15 @@ test("[AL-bind.2] the RFC 7638 section 3.1 key hashes to the RFC's thumbprint af
 	assert.equal(await calculateJwkThumbprint(key as CryptoKey, "sha256"), "NzbLsXh8uDCcd-6MNwXF4W_7noWXFZAfHkxZsRGC9Xs");
 });
 
-const pyca = readdirSync(GOLDEN).filter((file) => file.startsWith("pyca-"));
+const golden = readdirSync(GOLDEN).sort();
 
-test("the python-cryptography fixtures are all present", () => {
-	assert.deepEqual(pyca.sort(), ["pyca-ed25519.json", "pyca-eddsa.json", "pyca-es256.json", "pyca-ps256.json"]);
+test("the python-cryptography and Nimbus fixtures are all present", () => {
+	const kinds = ["ed25519", "eddsa", "es256", "ps256"];
+	assert.deepEqual(golden, [...kinds.map((k) => `nimbus-${k}.json`), ...kinds.map((k) => `pyca-${k}.json`)]);
 });
 
-for (const file of pyca) {
-	test(`[AL-bind.2] [9449-4.3.6] ${file}: a python-cryptography proof verifies, and the thumbprint matches Python's`, async () => {
+for (const file of golden) {
+	test(`[AL-bind.2] [9449-4.3.6] ${file}: a proof from another implementation verifies, and the thumbprint matches its own`, async () => {
 		const fixture = JSON.parse(readFileSync(join(GOLDEN, file), "utf8")) as {
 			proof: string;
 			method: string;

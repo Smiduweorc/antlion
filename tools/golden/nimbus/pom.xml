@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fetches Nimbus and Tink for NimbusDPoP.java; see its header for how to run it. -->
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>antlion.golden</groupId>
+	<artifactId>nimbus-dpop</artifactId>
+	<version>0</version>
+	<dependencies>
+		<dependency>
+			<groupId>com.nimbusds</groupId>
+			<artifactId>oauth2-oidc-sdk</artifactId>
+			<version>11.38.2</version>
+		</dependency>
+		<dependency>
+			<!-- Nimbus signs Ed25519 through Tink. -->
+			<groupId>com.google.crypto.tink</groupId>
+			<artifactId>tink</artifactId>
+			<version>1.23.0</version>
+		</dependency>
+	</dependencies>
+</project>
