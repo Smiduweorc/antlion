@@ -35,6 +35,7 @@ All notable changes to this project will be documented in this file.
 - Run the compliance gate and test the built artifact
 - Check lint, types, tests, compliance and the built artifact before npm publish
 - Updated lacewing
+- Fix rebase merge conflict failure in package-lock.json
 
 ### Security
 
