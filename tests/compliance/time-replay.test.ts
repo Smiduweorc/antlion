@@ -1,5 +1,5 @@
 /**
- * Freshness (AL-time, RFC 9449 section 11.1) and replay (AL-replay).
+ * Freshness (RFC 9449 section 11.1) and replay.
  */
 
 import { test } from "node:test";
@@ -19,11 +19,11 @@ import {
 } from "../helpers.js";
 import { AntlionError, SingleProcessReplayStore, type ReplayStore } from "../../index.js";
 
-test("[AL-time.2] maxProofAge defaults to 60 seconds", () => {
+test("maxProofAge defaults to 60 seconds", () => {
 	assert.equal(profile().maxProofAge, 60);
 });
 
-test("[AL-time.2] [9449-11.1.1] a proof exactly maxProofAge old is accepted, one millisecond more is not", async () => {
+test("[9449-11.1.1] a proof exactly maxProofAge old is accepted, one millisecond more is not", async () => {
 	const { key, token } = await bound();
 	const iat = T0 - 60_000;
 	const proof = (): Promise<string> => proofFor(key, token, {}, iat);
@@ -31,14 +31,14 @@ test("[AL-time.2] [9449-11.1.1] a proof exactly maxProofAge old is accepted, one
 	await refused(verifyDPoPRequest(request(token, await proof()), profile({ now: () => T0 + 1 })), "proof-expired");
 });
 
-test("[AL-time.2] a proof dated exactly five seconds ahead is accepted, one millisecond more is not", async () => {
+test("a proof dated exactly five seconds ahead is accepted, one millisecond more is not", async () => {
 	const { key, token } = await bound();
 	const proof = (): Promise<string> => proofFor(key, token, {}, T0 + 5_000);
 	assert.equal((await verifyDPoPRequest(request(token, await proof()), profile())).jkt, key.jkt);
 	await refused(verifyDPoPRequest(request(token, await proof()), profile({ now: () => T0 - 1 })), "proof-in-future");
 });
 
-test("[AL-time.2] a fractional iat is compared as it is, not rounded", async () => {
+test("a fractional iat is compared as it is, not rounded", async () => {
 	const { key, token } = await bound();
 	const proof = await proofFor(key, token, { payload: { iat: T0 / 1000 - 60.5 } });
 	await refused(verifyDPoPRequest(request(token, proof), profile()), "proof-expired");
@@ -46,7 +46,7 @@ test("[AL-time.2] a fractional iat is compared as it is, not rounded", async () 
 	assert.equal((await verifyDPoPRequest(request(token, inside), profile())).jkt, key.jkt);
 });
 
-test("[AL-time.1] [AL-time.2] maxProofAge can be narrowed or widened to 300 seconds, and no further", async () => {
+test("maxProofAge can be narrowed or widened to 300 seconds, and no further", async () => {
 	const { key, token } = await bound();
 	const old = await proofFor(key, token, {}, T0 - 300_000);
 	assert.equal((await verifyDPoPRequest(request(token, old), profile({ maxProofAge: "5m" }))).jkt, key.jkt);
@@ -56,7 +56,7 @@ test("[AL-time.1] [AL-time.2] maxProofAge can be narrowed or widened to 300 seco
 	assert.throws(() => profile({ maxProofAge: "6m" }), { code: "invalid-options" });
 });
 
-test("[AL-time.1] the future allowance is not an option", async () => {
+test("the future allowance is not an option", async () => {
 	const { key, token } = await bound();
 	const proof = await proofFor(key, token, {}, T0 + 6_000);
 	await refused(verifyDPoPRequest(request(token, proof), profile({ maxProofAge: 300 })), "proof-in-future");
@@ -71,7 +71,7 @@ test("[9449-11.1.1] the clock can go backwards without a proof being accepted tw
 	await refused(verifyDPoPRequest(request(token, proof), dpop), "replayed");
 });
 
-test("[AL-replay.2] a proof is accepted once; the second use is refused as replayed", async () => {
+test("a proof is accepted once; the second use is refused as replayed", async () => {
 	const { token, proof } = await bound();
 	const dpop = profile();
 	await verifyDPoPRequest(request(token, proof), dpop);
@@ -79,7 +79,7 @@ test("[AL-replay.2] a proof is accepted once; the second use is refused as repla
 	assert.match(error.refusal?.headers["WWW-Authenticate"] ?? "", /error="invalid_dpop_proof"/);
 });
 
-test("[AL-replay.2] two copies of one proof arriving together: exactly one is accepted", async () => {
+test("two copies of one proof arriving together: exactly one is accepted", async () => {
 	const { token, proof } = await bound();
 	const dpop = profile();
 	const results = await Promise.allSettled(
@@ -91,7 +91,7 @@ test("[AL-replay.2] two copies of one proof arriving together: exactly one is ac
 	}
 });
 
-test("[AL-replay.2] the TTL handed to the store is maxProofAge plus the future allowance plus one second", async () => {
+test("the TTL handed to the store is maxProofAge plus the future allowance plus one second", async () => {
 	const store = spyStore();
 	const { token, proof } = await bound();
 	await verifyDPoPRequest(request(token, proof), profile({ replay: store }));
@@ -101,7 +101,7 @@ test("[AL-replay.2] the TTL handed to the store is maxProofAge plus the future a
 	assert.equal(store.calls[1]?.[1], 306);
 });
 
-test("[AL-replay.2] the store remembers a proof for as long as it could still pass the iat check", async () => {
+test("the store remembers a proof for as long as it could still pass the iat check", async () => {
 	const { key, token } = await bound();
 	// Dated as far ahead as allowed: it stays fresh until T0 + 5 s + 60 s.
 	const proof = await proofFor(key, token, {}, T0 + 5_000);
@@ -115,7 +115,7 @@ test("[AL-replay.2] the store remembers a proof for as long as it could still pa
 	await refused(verifyDPoPRequest(request(token, proof), dpop), "proof-expired");
 });
 
-test("[AL-replay.2] a store that throws refuses the request, with the store's error as the cause", async () => {
+test("a store that throws refuses the request, with the store's error as the cause", async () => {
 	const { token, proof } = await bound();
 	const boom = new Error("connection reset");
 	const failing: ReplayStore = { addIfAbsent: async () => { throw boom; } };
@@ -124,7 +124,7 @@ test("[AL-replay.2] a store that throws refuses the request, with the store's er
 	assert.equal(error.refusal?.status, 401);
 });
 
-test("[AL-replay.2] a store that resolves anything but a boolean refuses the request", async () => {
+test("a store that resolves anything but a boolean refuses the request", async () => {
 	for (const value of [undefined, null, 1, 0, "true", {}]) {
 		const { token, proof } = await bound();
 		const odd = { addIfAbsent: async () => value } as unknown as ReplayStore;
@@ -132,13 +132,13 @@ test("[AL-replay.2] a store that resolves anything but a boolean refuses the req
 	}
 });
 
-test("[AL-replay.2] a store whose method is synchronous and throws still refuses", async () => {
+test("a store whose method is synchronous and throws still refuses", async () => {
 	const { token, proof } = await bound();
 	const sync = { addIfAbsent: () => { throw new Error("sync"); } } as unknown as ReplayStore;
 	await refused(verifyDPoPRequest(request(token, proof), profile({ replay: sync })), "replay-store-failed");
 });
 
-test("[AL-replay.4] [9449-11.1.2] the replay key is jkt, a colon, and the SHA-256 of the jti", async () => {
+test("[9449-11.1.2] the replay key is jkt, a colon, and the SHA-256 of the jti", async () => {
 	const store = spyStore();
 	const key = await clientKey();
 	const token = await tokenFor(key.jkt);
@@ -148,7 +148,7 @@ test("[AL-replay.4] [9449-11.1.2] the replay key is jkt, a colon, and the SHA-25
 	assert.equal(store.calls[0]?.[0].length, 87);
 });
 
-test("[AL-replay.4] the same jti from two different keys is two different proofs", async () => {
+test("the same jti from two different keys is two different proofs", async () => {
 	const dpop = profile();
 	for (let i = 0; i < 2; i++) {
 		const key = await clientKey();
@@ -158,11 +158,36 @@ test("[AL-replay.4] the same jti from two different keys is two different proofs
 	}
 });
 
-test("[AL-replay.4] a new proof with a reused jti from the same key is refused as replayed", async () => {
+test("a new proof with a reused jti from the same key is refused as replayed", async () => {
 	const key = await clientKey();
 	const token = await tokenFor(key.jkt);
 	const dpop = profile();
 	await verifyDPoPRequest(request(token, await proofFor(key, token, { payload: { jti: "again" } })), dpop);
 	const other = await proofFor(key, token, { payload: { jti: "again", htm: "POST" } });
 	await refused(verifyDPoPRequest(request(token, other, { method: "POST" }), dpop), "replayed");
+});
+
+test("two nodes sharing a store refuse a replay while their clocks differ by under a second, and not from one second on", async () => {
+	// Real time runs on `real`; the fast node reads it `skew` ms ahead, the
+	// slow node exactly. The proof is accepted by the fast node at the first
+	// instant its clock allows (five seconds before iat), and replayed to the
+	// slow node at the last instant its clock allows (maxProofAge after iat).
+	// The deployment guide states this limit, and this is where its number
+	// comes from.
+	const { key, token } = await bound();
+	const iatMs = T0 + 60_000;
+	for (const [skew, second] of [[999, "replayed"], [1_000, "accepted"]] as const) {
+		const proof = await proofFor(key, token, {}, iatMs);
+		let real = iatMs - 5_000 - skew;
+		const replay = new SingleProcessReplayStore({ maxEntries: 10, now: () => real });
+		const fast = profile({ replay, now: () => real + skew });
+		const slow = profile({ replay, now: () => real });
+		await verifyDPoPRequest(request(token, proof), fast);
+		real = iatMs + 60_000;
+		if (second === "replayed") {
+			await refused(verifyDPoPRequest(request(token, proof), slow), "replayed");
+		} else {
+			assert.equal((await verifyDPoPRequest(request(token, proof), slow)).jkt, key.jkt);
+		}
+	}
 });

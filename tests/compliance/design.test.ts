@@ -32,7 +32,7 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-test("[AL-bind.1] the package exports one verifier and nothing that checks a proof alone", () => {
+test("the package exports one verifier and nothing that checks a proof alone", () => {
 	assert.deepEqual(Object.keys(antlion).sort(), [
 		"AntlionError",
 		"DPOP_REQUEST_HEADERS",
@@ -44,7 +44,7 @@ test("[AL-bind.1] the package exports one verifier and nothing that checks a pro
 	assert.deepEqual(Object.keys(legacy), ["legacyRS256Proofs"]);
 });
 
-test("[AL-bind.1] a verified result is frozen and carries the token Lacewing verified", async () => {
+test("a verified result is frozen and carries the token Lacewing verified", async () => {
 	const { key, token, proof } = await bound();
 	const result = await verifyDPoPRequest(request(token, proof), profile());
 	assert.equal(Object.isFrozen(result), true);
@@ -53,7 +53,7 @@ test("[AL-bind.1] a verified result is frozen and carries the token Lacewing ver
 	assert.equal(result.token.payload.iss, ISSUER);
 });
 
-test("[AL-key.1] EmbeddedJWK is imported by src/proof.ts and no other source file", () => {
+test("EmbeddedJWK is imported by src/proof.ts and no other source file", () => {
 	const importers: string[] = [];
 	const walk = (dir: string): void => {
 		for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -71,13 +71,13 @@ test("[AL-key.1] EmbeddedJWK is imported by src/proof.ts and no other source fil
 	assert.deepEqual(importers, ["src/proof.ts"]);
 });
 
-test("[AL-key.1] ESLint refuses EmbeddedJWK outside src/proof.ts", () => {
+test("ESLint refuses EmbeddedJWK outside src/proof.ts", () => {
 	const config = readFileSync(join(ROOT, "eslint.config.mjs"), "utf8");
 	assert.match(config, /importNames: \["EmbeddedJWK"\]/);
 	assert.match(config, /files: \["src\/proof\.ts"\],\s*rules: \{\s*"no-restricted-imports": "off"/);
 });
 
-test("[AL-key.1] an access token that carries its own jwk and is signed by it is refused", async () => {
+test("an access token that carries its own jwk and is signed by it is refused", async () => {
 	// The attacker's token names the attacker's key in its header and binds
 	// itself to the same key. Accepted only if the token were checked against
 	// its embedded key, which is the forgery this guards against.
@@ -98,12 +98,12 @@ test("[AL-key.1] an access token that carries its own jwk and is signed by it is
 	await refused(verifyDPoPRequest(request(forged, await proofFor(client, forged)), profile()), "token-invalid");
 });
 
-test("[AL-alg.1] the default algorithms are exactly the FAPI 2.0 set, Ed25519 under both names", () => {
+test("the default algorithms are exactly the FAPI 2.0 set, Ed25519 under both names", () => {
 	assert.deepEqual(profile().algorithms, ["ES256", "PS256", "EdDSA", "Ed25519"]);
 	assert.equal(Object.isFrozen(profile().algorithms), true);
 });
 
-test("[AL-alg.1] alg must match the jwk's key type and curve", async () => {
+test("alg must match the jwk's key type and curve", async () => {
 	const { token } = await bound();
 	const ec = await clientKey("ES256");
 	const ed = await clientKey("Ed25519");
@@ -135,7 +135,7 @@ test("[AL-alg.1] alg must match the jwk's key type and curve", async () => {
 	}
 });
 
-test("[AL-alg.1] an RSA key under 2048 bits is refused, and one with a zero-padded modulus too", async () => {
+test("an RSA key under 2048 bits is refused, and one with a zero-padded modulus too", async () => {
 	const small = (await crypto.subtle.generateKey(
 		{ name: "RSA-PSS", modulusLength: 1024, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
 		true,
@@ -152,7 +152,7 @@ test("[AL-alg.1] an RSA key under 2048 bits is refused, and one with a zero-padd
 	await refused(verifyDPoPRequest(request(token, proof), profile()), "proof-key");
 });
 
-test("[AL-alg.1] a jwk that names a different alg is refused", async () => {
+test("a jwk that names a different alg is refused", async () => {
 	const { key, token } = await bound("Ed25519");
 	const proof = await proofFor(key, token, { header: { jwk: { ...key.jwk, alg: "EdDSA" } } });
 	await refused(verifyDPoPRequest(request(token, proof), profile()), "proof-key");
@@ -160,7 +160,7 @@ test("[AL-alg.1] a jwk that names a different alg is refused", async () => {
 	assert.equal((await verifyDPoPRequest(request(token, same), profile())).jkt, key.jkt);
 });
 
-test("[AL-alg.2] an RS256 proof is refused unless the profile took legacyRS256Proofs()", async () => {
+test("an RS256 proof is refused unless the profile took legacyRS256Proofs()", async () => {
 	const key = await clientKey("RS256");
 	const token = await tokenFor(key.jkt);
 	await refused(verifyDPoPRequest(request(token, await proofFor(key, token)), profile()), "proof-algorithm");
@@ -173,14 +173,14 @@ test("[AL-alg.2] an RS256 proof is refused unless the profile took legacyRS256Pr
 	assert.equal(challenge.refusal?.headers["WWW-Authenticate"], "DPoP algs=\"ES256 PS256 EdDSA Ed25519 RS256\"");
 });
 
-test("[AL-alg.2] legacyAlgorithms takes only what antlion-lacewing/legacy returns", () => {
+test("legacyAlgorithms takes only what antlion-lacewing/legacy returns", () => {
 	for (const entry of [{ name: "RS384" }, { name: "HS256" }, "RS256", null]) {
 		assert.throws(() => profile({ legacyAlgorithms: [entry as never] }), { code: "invalid-options" });
 	}
 	assert.throws(() => profile({ legacyAlgorithms: "RS256" as never }), { code: "invalid-options" });
 });
 
-test("[AL-req.1] Host, X-Forwarded-Host, X-Forwarded-Proto and Forwarded are never read", async () => {
+test("Host, X-Forwarded-Host, X-Forwarded-Proto and Forwarded are never read", async () => {
 	const { key, token } = await bound();
 	const lying = await proofFor(key, token, { payload: { htu: `https://evil.example.com${PATH}` } });
 	const headers: [string, string][] = [
@@ -196,7 +196,7 @@ test("[AL-req.1] Host, X-Forwarded-Host, X-Forwarded-Proto and Forwarded are nev
 	assert.equal(result.jkt, key.jkt);
 });
 
-test("[AL-req.1] a path-only url is joined to the configured origin, query and fragment dropped", async () => {
+test("a path-only url is joined to the configured origin, query and fragment dropped", async () => {
 	const { key, token } = await bound();
 	const proof = await proofFor(key, token);
 	const headers = new Headers({ authorization: `DPoP ${token}`, dpop: proof });
@@ -204,7 +204,7 @@ test("[AL-req.1] a path-only url is joined to the configured origin, query and f
 	assert.equal(result.jkt, key.jkt);
 });
 
-test("[AL-req.1] a path starting with // stays a path on the configured origin", async () => {
+test("a path starting with // stays a path on the configured origin", async () => {
 	const { key, token } = await bound();
 	const proof = await proofFor(key, token, { payload: { htu: `${ORIGIN}//evil.example.com/x` } });
 	const headers = new Headers({ authorization: `DPoP ${token}`, dpop: proof });
@@ -215,12 +215,12 @@ test("[AL-req.1] a path starting with // stays a path on the configured origin",
 	await refused(verifyDPoPRequest({ method: "GET", url: "//evil.example.com/x", headers: again }, profile()), "htu-mismatch");
 });
 
-test("[AL-replay.1] the in-memory store is named for one process, and a profile has no store by default", () => {
+test("the in-memory store is named for one process, and a profile has no store by default", () => {
 	assert.equal(antlion.SingleProcessReplayStore.name, "SingleProcessReplayStore");
 	assert.throws(() => profile({ replay: undefined as never }), { code: "invalid-options" });
 });
 
-test("[AL-alg.1] a jwk whose kty is wrong for alg is refused as a key problem, even when its crv would fit", async () => {
+test("a jwk whose kty is wrong for alg is refused as a key problem, even when its crv would fit", async () => {
 	const { key, token } = await bound("ES256");
 	const proof = await proofFor(key, token, { header: { jwk: { ...key.jwk, kty: "OKP" } } });
 	await refused(verifyDPoPRequest(request(token, proof), profile()), "proof-key");

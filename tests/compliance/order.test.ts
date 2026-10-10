@@ -1,5 +1,5 @@
 /**
- * The fixed order (AL-dos.1) and the store coming last (AL-replay.3).
+ * The fixed order, and the store coming last.
  *
  * Each test breaks two things at once and asserts the earlier check is the
  * one that answers. If two steps are ever swapped, the pair that straddles
@@ -43,13 +43,13 @@ function countingTokenProfile(): { token: ReturnType<typeof accessTokenProfile>;
 	};
 }
 
-test("[AL-dos.1] the Authorization header is read before the DPoP header", async () => {
+test("the Authorization header is read before the DPoP header", async () => {
 	const { token } = await bound();
 	await refused(verifyDPoPRequest(request(token, "garbage", { scheme: "Bearer" }), profile()), "bearer-scheme");
 	await refused(verifyDPoPRequest(request(null, null), profile()), "missing-authorization");
 });
 
-test("[AL-dos.1] a proof over the size limit is refused before it is parsed", async () => {
+test("a proof over the size limit is refused before it is parsed", async () => {
 	const { token } = await bound();
 	const huge = `${"a".repeat(16_381)}.b.c`;
 	const error = await refused(verifyDPoPRequest(request(token, huge), profile()), "malformed-proof");
@@ -59,7 +59,7 @@ test("[AL-dos.1] a proof over the size limit is refused before it is parsed", as
 	assert.doesNotMatch(parsed.message, /maximum length/);
 });
 
-test("[AL-dos.1] typ is checked before alg, alg before the key, the key before the claims", async () => {
+test("typ is checked before alg, alg before the key, the key before the claims", async () => {
 	const { key, token } = await bound();
 	const cases: [ProofParts, AntlionErrorCode][] = [
 		[{ header: { typ: "JWT", alg: "none" } }, "proof-typ"],
@@ -73,7 +73,7 @@ test("[AL-dos.1] typ is checked before alg, alg before the key, the key before t
 	}
 });
 
-test("[AL-dos.1] htm is checked before htu, and htu before the signature", async () => {
+test("htm is checked before htu, and htu before the signature", async () => {
 	const { key, token } = await bound();
 	const other = await clientKey();
 	const both = await proofFor(key, token, { payload: { htm: "POST", htu: "https://evil.example.com/" } });
@@ -83,7 +83,7 @@ test("[AL-dos.1] htm is checked before htu, and htu before the signature", async
 	await refused(verifyDPoPRequest(request(token, badSignature), profile()), "htu-mismatch");
 });
 
-test("[AL-dos.1] the access token is not looked at until the proof's signature has verified", async () => {
+test("the access token is not looked at until the proof's signature has verified", async () => {
 	const { key, token } = await bound();
 	const counting = countingTokenProfile();
 	const dpop = profile({ token: counting.token });
@@ -95,7 +95,7 @@ test("[AL-dos.1] the access token is not looked at until the proof's signature h
 	assert.equal(counting.lookups(), 1);
 });
 
-test("[AL-dos.1] the token is verified before the binding, the binding before ath, ath before freshness", async () => {
+test("the token is verified before the binding, the binding before ath, ath before freshness", async () => {
 	const holder = await clientKey();
 	const thief = await clientKey();
 	const token = await tokenFor(holder.jkt);
@@ -122,7 +122,7 @@ test("[AL-dos.1] the token is verified before the binding, the binding before at
 	);
 });
 
-test("[AL-replay.3] [AL-dos.1] the replay store is never consulted for a request that fails any earlier check", async () => {
+test("the replay store is never consulted for a request that fails any earlier check", async () => {
 	const store = spyStore();
 	const dpop = profile({ replay: store });
 	const holder = await clientKey();

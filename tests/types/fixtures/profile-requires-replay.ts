@@ -1,4 +1,4 @@
-// NEGATIVE FIXTURE: must not compile (AL-replay.1). A profile with no replay
+// NEGATIVE FIXTURE: must not compile. A profile with no replay
 // store is a profile that accepts every proof as often as it is sent.
 
 import { accessTokenProfile } from "lacewing";

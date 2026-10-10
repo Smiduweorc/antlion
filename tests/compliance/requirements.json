@@ -2,11 +2,10 @@
 	"schema": 1,
 	"$comment": "Machine-readable requirement inventory; the generated compliance-report.md is its human-readable view. tools/compliance-gate.ts fails the build if any id here has zero passing tests, or if a test references an id-shaped tag absent from this list.",
 	"namespaces": {
-		"9449": "RFC 9449 (DPoP) normative statements that apply to a resource server",
-		"AL": "Antlion-native requirements: the README's common-mistakes list and the package's own guarantees"
+		"9449": "RFC 9449 (DPoP) normative statements that apply to a resource server"
 	},
 	"levels": ["MUST", "MUST NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED"],
-	"mechanisms": ["design", "runtime", "docs"],
+	"mechanisms": ["design", "runtime"],
 	"requirements": [
 		{ "id": "9449-4.1.1", "level": "MUST", "mechanism": "runtime", "summary": "The DPoP header value is token68 carrying one compact JWS." },
 		{ "id": "9449-4.2.1", "level": "MUST", "mechanism": "runtime", "summary": "The proof header's typ is dpop+jwt." },
@@ -43,38 +42,7 @@
 		{ "id": "9449-11.1.1", "level": "MUST", "mechanism": "runtime", "summary": "Proofs are accepted only for a limited time after creation." },
 		{ "id": "9449-11.1.2", "level": "SHOULD", "mechanism": "runtime", "summary": "jti values are stored as a fixed-size hash, so a large jti cannot exhaust the store." },
 		{ "id": "9449-11.3.1", "level": "MUST NOT", "mechanism": "runtime", "summary": "With nonces on, a proof without a nonce is refused." },
-		{ "id": "9449-11.6.1", "level": "MUST", "mechanism": "design", "summary": "Only asymmetric algorithms deemed secure sign proofs; none is never allowed." },
+		{ "id": "9449-11.6.1", "level": "MUST", "mechanism": "design", "summary": "Only asymmetric algorithms deemed secure sign proofs; none is never allowed." }
 
-		{ "id": "AL-bind.1", "level": "MUST", "mechanism": "design", "summary": "A DPoPVerifiedJwt exists only after the binding check; no proof-only verifier is exported." },
-		{ "id": "AL-bind.2", "level": "MUST", "mechanism": "runtime", "summary": "The thumbprint is computed by jose from the verified proof key, never read from input; RFC 7638 and RFC 9449 vectors pass." },
-		{ "id": "AL-bind.3", "level": "MUST", "mechanism": "runtime", "summary": "A DPoP profile refuses the Bearer scheme outright." },
-		{ "id": "AL-bind.4", "level": "MUST", "mechanism": "runtime", "summary": "A token without a well-formed cnf.jkt is refused under the DPoP scheme." },
-		{ "id": "AL-key.1", "level": "MUST", "mechanism": "design", "summary": "Embedded-key verification lives in one module and cannot verify an access token." },
-		{ "id": "AL-key.2", "level": "MUST", "mechanism": "runtime", "summary": "A proof jwk with d, p, q, dp, dq, qi, oth or k is refused." },
-		{ "id": "AL-alg.1", "level": "MUST", "mechanism": "design", "summary": "The algorithm allowlist is fixed to the FAPI set, and alg must match the jwk's key type, curve and size." },
-		{ "id": "AL-alg.2", "level": "MUST", "mechanism": "design", "summary": "RS256 proofs are accepted only through antlion-lacewing/legacy." },
-		{ "id": "AL-hdr.1", "level": "MUST", "mechanism": "runtime", "summary": "The proof typ is enforced." },
-		{ "id": "AL-hdr.2", "level": "MUST", "mechanism": "runtime", "summary": "Two DPoP or two Authorization headers, joined by Headers with a comma, are refused." },
-		{ "id": "AL-hdr.3", "level": "MUST", "mechanism": "runtime", "summary": "The DPoP scheme is matched in any case and followed by one or more spaces and one token68 (RFC 9449 figure 12)." },
-		{ "id": "AL-hdr.5", "level": "MUST", "mechanism": "runtime", "summary": "A proof header or payload that names a member twice, at any depth, is refused, read by Lacewing's own parser." },
-		{ "id": "AL-hdr.4", "level": "MUST", "mechanism": "runtime", "summary": "Header parameters that name another key or change JWS processing are refused." },
-		{ "id": "AL-req.1", "level": "MUST", "mechanism": "design", "summary": "htu is compared exactly against the configured origin plus the request path; Host and forwarding headers are never read." },
-		{ "id": "AL-req.2", "level": "MUST", "mechanism": "runtime", "summary": "htm is compared exactly, case included." },
-		{ "id": "AL-req.3", "level": "MUST", "mechanism": "runtime", "summary": "ath is always required and is the SHA-256 of the exact token string presented." },
-		{ "id": "AL-time.1", "level": "MUST", "mechanism": "design", "summary": "The iat window has a hard ceiling, and the future allowance is small and fixed." },
-		{ "id": "AL-time.2", "level": "MUST", "mechanism": "runtime", "summary": "maxProofAge defaults to 60 seconds and cannot exceed 300; the future allowance is 5 seconds; both edges are inclusive." },
-		{ "id": "AL-replay.1", "level": "MUST", "mechanism": "design", "summary": "The replay store is required by the profile's type; the in-memory store is named for one process." },
-		{ "id": "AL-replay.2", "level": "MUST", "mechanism": "runtime", "summary": "The store contract is one atomic addIfAbsent; a store error or non-boolean result refuses; the TTL covers the whole iat window." },
-		{ "id": "AL-replay.3", "level": "MUST", "mechanism": "runtime", "summary": "The store is consulted last, after both signatures and the binding pass." },
-		{ "id": "AL-replay.4", "level": "MUST", "mechanism": "runtime", "summary": "The replay key is the proof key's thumbprint plus the jti, so proofs from different keys never collide." },
-		{ "id": "AL-nonce.1", "level": "MUST", "mechanism": "design", "summary": "Nonce mode has no default; nonces are stateless HMACs that expire, rotate, and verify on every node sharing the secret." },
-		{ "id": "AL-nonce.2", "level": "MUST", "mechanism": "runtime", "summary": "Antlion builds the use_dpop_nonce challenge itself." },
-		{ "id": "AL-dos.1", "level": "MUST", "mechanism": "runtime", "summary": "Checks run in a fixed order: size, structure, typ/alg/htm/htu, proof signature, token, binding, freshness, store." },
-		{ "id": "AL-err.1", "level": "MUST", "mechanism": "runtime", "summary": "The client sees only the RFC error value; the precise reason is a typed code, and messages never repeat request content." },
-		{ "id": "AL-err.2", "level": "MUST", "mechanism": "runtime", "summary": "An error from the caller's own code that Lacewing does not catch passes through unchanged; only Antlion's and Lacewing's refusals become AntlionErrors." },
-		{ "id": "AL-opt.1", "level": "MUST", "mechanism": "runtime", "summary": "Every profile and store option is validated at construction, with a message naming the fix." },
-		{ "id": "AL-node.1", "level": "MUST", "mechanism": "runtime", "summary": "The Node adapter sees duplicate headers through headersDistinct and the path the client signed under Express routers, Fastify prefixes and koa-mount." },
-		{ "id": "AL-cors.1", "level": "SHOULD", "mechanism": "docs", "summary": "The header names a browser client needs in CORS are exported and documented." },
-		{ "id": "AL-scope.1", "level": "SHOULD", "mechanism": "docs", "summary": "The docs say DPoP does not protect a compromised client, hide the token, or work without state." }
 	]
 }

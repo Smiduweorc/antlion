@@ -66,7 +66,7 @@ test("[9449-4.3.2] a proof with invalid UTF-8 in its payload is refused", async 
 	await refused(verifyDPoPRequest(request(token, proof), profile()), "malformed-proof");
 });
 
-test("[9449-4.2.1] [9449-4.3.4] [AL-hdr.1] a proof whose typ is not dpop+jwt is refused", async () => {
+test("[9449-4.2.1] [9449-4.3.4] a proof whose typ is not dpop+jwt is refused", async () => {
 	const { key, token } = await bound();
 	for (const typ of ["JWT", "at+jwt", "dpop", "dpop+jwt ", "", 1, null]) {
 		const proof = await proofFor(key, token, { header: { typ } });
@@ -76,7 +76,7 @@ test("[9449-4.2.1] [9449-4.3.4] [AL-hdr.1] a proof whose typ is not dpop+jwt is 
 	await refused(verifyDPoPRequest(request(token, missing), profile()), "proof-typ");
 });
 
-test("[9449-4.2.1] [AL-hdr.1] typ is read the RFC 7515 way: any case, application/ prefix optional", async () => {
+test("[9449-4.2.1] typ is read the RFC 7515 way: any case, application/ prefix optional", async () => {
 	const { key, token } = await bound();
 	for (const typ of ["DPoP+JWT", "application/dpop+jwt", "Application/DPOP+jwt"]) {
 		const proof = await proofFor(key, token, { header: { typ } });
@@ -102,7 +102,7 @@ test("[9449-4.3.5] a real ES384 proof, correctly signed, is refused because ES38
 	await refused(verifyDPoPRequest(request(token, proof), profile()), "proof-algorithm");
 });
 
-test("[9449-4.2.3] [9449-4.3.7] [AL-key.2] a jwk carrying any private member is refused", async () => {
+test("[9449-4.2.3] [9449-4.3.7] a jwk carrying any private member is refused", async () => {
 	const { key, token } = await bound();
 	for (const member of ["d", "p", "q", "dp", "dq", "qi", "oth", "k"]) {
 		const proof = await proofFor(key, token, { header: { jwk: { ...key.jwk, [member]: "AAAA" } } });
@@ -110,7 +110,7 @@ test("[9449-4.2.3] [9449-4.3.7] [AL-key.2] a jwk carrying any private member is 
 	}
 });
 
-test("[9449-4.2.3] [AL-key.2] a real private EC JWK in the header is refused before the signature is tried", async () => {
+test("[9449-4.2.3] a real private EC JWK in the header is refused before the signature is tried", async () => {
 	const key = await clientKey("ES256");
 	const token = await tokenFor(key.jkt);
 	const full = await crypto.subtle.exportKey("jwk", key.privateKey);
@@ -150,13 +150,13 @@ test("[9449-4.2.4] [9449-4.3.3] claims of the wrong type are refused", async () 
 	await refused(verifyDPoPRequest(request(token, infinite), profile()), "malformed-proof");
 });
 
-test("[9449-4.2.5] [AL-req.3] a proof with no ath is refused, even though every other check would pass", async () => {
+test("[9449-4.2.5] a proof with no ath is refused, even though every other check would pass", async () => {
 	const { key, token } = await bound();
 	const proof = await proofFor(key, token, { omitPayload: ["ath"] });
 	await refused(verifyDPoPRequest(request(token, proof), profile()), "malformed-proof");
 });
 
-test("[9449-4.3.1] [AL-hdr.2] two DPoP headers are refused", async () => {
+test("[9449-4.3.1] two DPoP headers are refused", async () => {
 	const { key, token, proof } = await bound();
 	const second = await proofFor(key, token);
 	const req = request(token, proof, { headers: [["dpop", second]] });
@@ -187,7 +187,7 @@ test("[9449-4.3.6] a proof whose signature does not verify under its own jwk is 
 	);
 });
 
-test("[9449-4.3.8] [AL-req.2] htm must equal the request method exactly", async () => {
+test("[9449-4.3.8] htm must equal the request method exactly", async () => {
 	const { key, token } = await bound();
 	for (const htm of ["POST", "get", "Get", "GET ", ""]) {
 		const proof = await proofFor(key, token, { payload: { htm } });
@@ -284,7 +284,7 @@ test("[9449-4.3.11] a proof dated more than five seconds ahead is refused", asyn
 	await refused(verifyDPoPRequest(request(token, proof), profile()), "proof-in-future");
 });
 
-test("[9449-4.3.12] [AL-req.3] ath must be the hash of the token presented with it", async () => {
+test("[9449-4.3.12] ath must be the hash of the token presented with it", async () => {
 	const key = await clientKey();
 	const token = await tokenFor(key.jkt);
 	const otherToken = await tokenFor(key.jkt);
@@ -312,7 +312,7 @@ test("[9449-8.2.3] a nonce secret under 32 bytes is refused, so nonces stay ungu
 	);
 });
 
-test("[AL-hdr.4] a header naming another key, or asking for JWS extensions, is refused", async () => {
+test("a header naming another key, or asking for JWS extensions, is refused", async () => {
 	const { key, token } = await bound();
 	const values: Record<string, unknown> = {
 		jku: "https://evil.example.com/jwks",
@@ -331,13 +331,13 @@ test("[AL-hdr.4] a header naming another key, or asking for JWS extensions, is r
 	}
 });
 
-test("[AL-hdr.4] harmless extra header parameters, such as kid, are accepted", async () => {
+test("harmless extra header parameters, such as kid, are accepted", async () => {
 	const { key, token } = await bound();
 	const proof = await proofFor(key, token, { header: { kid: "client-key-1", cty: "x" } });
 	assert.equal((await verifyDPoPRequest(request(token, proof), profile())).jkt, key.jkt);
 });
 
-test("[AL-hdr.5] [9449-4.3.2] a proof that names a header or claim member twice is refused, even correctly signed", async () => {
+test("[9449-4.3.2] a proof that names a header or claim member twice is refused, even correctly signed", async () => {
 	const { key, token } = await bound();
 	const header = `{"typ":"dpop+jwt","alg":"ES256","jwk":${JSON.stringify(key.jwk)}}`;
 	const claims = `"jti":"j","htm":"GET","iat":${T0 / 1000},"ath":"${await ath(token)}"`;

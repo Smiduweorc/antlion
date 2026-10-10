@@ -27,7 +27,7 @@ test("[9449-6.1.1] [9449-7.1.1] a token whose cnf.jkt is the proof key's thumbpr
 	}
 });
 
-test("[9449-6.1.1] [AL-bind.4] a token with no cnf, or a cnf with no usable jkt, is refused", async () => {
+test("[9449-6.1.1] a token with no cnf, or a cnf with no usable jkt, is refused", async () => {
 	const key = await clientKey();
 	const unbound = await tokenFor(null);
 	const error = await refused(
@@ -102,7 +102,7 @@ test("[9449-7.2.2] [9449-7.1.4] a request with no credentials gets a challenge w
 	assert.equal(empty.refusal?.status, 401);
 });
 
-test("[9449-7.2.1] [AL-bind.3] a DPoP-bound token under the Bearer scheme is refused, with or without a proof", async () => {
+test("[9449-7.2.1] a DPoP-bound token under the Bearer scheme is refused, with or without a proof", async () => {
 	const { token, proof } = await bound();
 	for (const scheme of ["Bearer", "bearer", "BEARER"]) {
 		const error = await refused(verifyDPoPRequest(request(token, proof, { scheme }), profile()), "bearer-scheme");
@@ -114,7 +114,7 @@ test("[9449-7.2.1] [AL-bind.3] a DPoP-bound token under the Bearer scheme is ref
 	}
 });
 
-test("[AL-hdr.3] the DPoP scheme matches in any case", async () => {
+test("the DPoP scheme matches in any case", async () => {
 	const { key, token } = await bound();
 	for (const scheme of ["DPoP", "dpop", "DPOP", "dPoP"]) {
 		const result = await verifyDPoPRequest(request(token, await proofFor(key, token), { scheme }), profile());
@@ -122,7 +122,7 @@ test("[AL-hdr.3] the DPoP scheme matches in any case", async () => {
 	}
 });
 
-test("[AL-hdr.3] one or more spaces may follow the scheme, as RFC 9449 figure 12 writes it", async () => {
+test("one or more spaces may follow the scheme, as RFC 9449 figure 12 writes it", async () => {
 	const { key, token } = await bound();
 	for (const gap of [" ", "  ", "     "]) {
 		const req = request(null, await proofFor(key, token), { headers: [["authorization", `DPoP${gap}${token}`]] });
@@ -130,7 +130,7 @@ test("[AL-hdr.3] one or more spaces may follow the scheme, as RFC 9449 figure 12
 	}
 });
 
-test("[AL-hdr.3] anything but spaces and one token68 after the scheme is a 400 invalid_request", async () => {
+test("anything but spaces and one token68 after the scheme is a 400 invalid_request", async () => {
 	const { token, proof } = await bound();
 	for (const value of [
 		`DPoP\t${token}`,
@@ -159,7 +159,7 @@ test("[AL-hdr.3] anything but spaces and one token68 after the scheme is a 400 i
 	}
 });
 
-test("[AL-hdr.2] two Authorization headers are a 400, whichever schemes they use", async () => {
+test("two Authorization headers are a 400, whichever schemes they use", async () => {
 	const { token, proof } = await bound();
 	for (const second of [`DPoP ${token}`, `Bearer ${token}`, "Basic dXNlcjpwYXNz"]) {
 		const req = request(token, proof, { headers: [["authorization", second]] });
@@ -169,7 +169,7 @@ test("[AL-hdr.2] two Authorization headers are a 400, whichever schemes they use
 	}
 });
 
-test("[AL-hdr.2] an Authorization header over 16384 characters is refused before any parsing", async () => {
+test("an Authorization header over 16384 characters is refused before any parsing", async () => {
 	const { proof } = await bound();
 	const over = request("a".repeat(16_384 - "DPoP ".length + 1), proof);
 	await refused(verifyDPoPRequest(over, profile()), "malformed-authorization");

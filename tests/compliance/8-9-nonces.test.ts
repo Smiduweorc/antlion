@@ -1,6 +1,6 @@
 /**
  * RFC 9449 sections 8 and 9 (server nonces) and 11.3 (nonce downgrade), and
- * the stateless design Antlion commits to (AL-nonce).
+ * the stateless design Antlion commits to.
  */
 
 import { test } from "node:test";
@@ -25,7 +25,7 @@ async function nonceFrom(key: ClientKey, token: string, dpop: DPoPProfile): Prom
 	return error.refusal?.headers["DPoP-Nonce"] as string;
 }
 
-test("[9449-9.1] [AL-nonce.2] [9449-8.2.1] a proof without a nonce gets 401 use_dpop_nonce, a DPoP-Nonce and no-store", async () => {
+test("[9449-9.1] [9449-8.2.1] a proof without a nonce gets 401 use_dpop_nonce, a DPoP-Nonce and no-store", async () => {
 	const { key, token } = await bound();
 	const error = await refused(
 		verifyDPoPRequest(request(token, await proofFor(key, token)), profile({ nonce: "required" })),
@@ -97,7 +97,7 @@ test("[9449-8.2.3] nonces are unpredictable without the secret: two secrets, two
 	assert.equal(a.slice(0, 11), b.slice(0, 11), "the issue time is the same, so only the MAC differs");
 });
 
-test("[9449-9.2] [AL-nonce.1] a nonce from another origin sharing the secret is refused", async () => {
+test("[9449-9.2] a nonce from another origin sharing the secret is refused", async () => {
 	const { key, token } = await bound();
 	const elsewhere = defineDPoPProfile({
 		token: tokenProfile(),
@@ -122,7 +122,7 @@ test("[9449-9.2] [AL-nonce.1] a nonce from another origin sharing the secret is 
 	await refused(verifyDPoPRequest(request(token, proof), profile({ nonce: "required" })), "nonce-invalid");
 });
 
-test("[AL-nonce.1] nonces are stateless: a second profile with the same secret and origin accepts them", async () => {
+test("nonces are stateless: a second profile with the same secret and origin accepts them", async () => {
 	const { key, token } = await bound();
 	const issuedBy = profile({ nonce: "required" });
 	const acceptedBy = profile({ nonce: "required" });
@@ -131,7 +131,7 @@ test("[AL-nonce.1] nonces are stateless: a second profile with the same secret a
 	assert.equal(result.jkt, key.jkt);
 });
 
-test("[AL-nonce.1] rotation: the first secret signs, and every listed secret verifies", async () => {
+test("rotation: the first secret signs, and every listed secret verifies", async () => {
 	const { key, token } = await bound();
 	const oldSecret = NONCE_SECRET;
 	const newSecret = new Uint8Array(32).fill(1);
@@ -154,7 +154,7 @@ test("[AL-nonce.1] rotation: the first secret signs, and every listed secret ver
 	);
 });
 
-test("[AL-nonce.1] a nonce expires maxProofAge seconds after it was issued, edge inclusive", async () => {
+test("a nonce expires maxProofAge seconds after it was issued, edge inclusive", async () => {
 	const { key, token } = await bound();
 	const time = clock();
 	const dpop = profile({ nonce: "required", now: time.now, maxProofAge: 30 });
@@ -167,7 +167,7 @@ test("[AL-nonce.1] a nonce expires maxProofAge seconds after it was issued, edge
 	await refused(verifyAt(T0 + 31_000), "nonce-invalid");
 });
 
-test("[AL-nonce.1] a nonce issued up to five seconds ahead of this node's clock is accepted, and six is not", async () => {
+test("a nonce issued up to five seconds ahead of this node's clock is accepted, and six is not", async () => {
 	const { key, token } = await bound();
 	const time = clock(T0 + 5_000);
 	const ahead = profile({ nonce: "required", now: time.now });
@@ -179,7 +179,7 @@ test("[AL-nonce.1] a nonce issued up to five seconds ahead of this node's clock 
 	await refused(verifyDPoPRequest(request(token, await proofAt(T0 - 1_000)), behind(T0 - 1_000)), "nonce-invalid");
 });
 
-test("[AL-nonce.1] a nonce with its MAC or its issue time altered is refused", async () => {
+test("a nonce with its MAC or its issue time altered is refused", async () => {
 	const { key, token } = await bound();
 	const dpop = profile({ nonce: "required" });
 	const nonce = await nonceFrom(key, token, dpop);
@@ -194,7 +194,7 @@ test("[AL-nonce.1] a nonce with its MAC or its issue time altered is refused", a
 	}
 });
 
-test("[AL-nonce.1] with nonces off, a nonce claim in the proof is ignored and no nonce is handed back", async () => {
+test("with nonces off, a nonce claim in the proof is ignored and no nonce is handed back", async () => {
 	const { key, token } = await bound();
 	const result = await verifyDPoPRequest(
 		request(token, await proofFor(key, token, { payload: { nonce: "from the authorization server" } })),

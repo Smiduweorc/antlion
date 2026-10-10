@@ -15,14 +15,14 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..", "..");
 
-const FIXTURES: { file: string; code: string; tag: string; why: string }[] = [
-	{ file: "profile-requires-replay.ts", code: "TS2345", tag: "AL-replay.1", why: "a profile without a replay store" },
-	{ file: "profile-requires-nonce.ts", code: "TS2345", tag: "AL-nonce.1", why: "a profile that does not choose a nonce mode" },
-	{ file: "nonce-required-needs-secrets.ts", code: "TS2345", tag: "AL-nonce.1", why: "nonces required with no secret" },
-	{ file: "nonce-off-refuses-secrets.ts", code: "TS2345", tag: "AL-nonce.1", why: "nonce secrets with nonces off" },
-	{ file: "forged-verified.ts", code: "TS2322", tag: "AL-bind.1", why: "a DPoPVerifiedJwt built by hand" },
-	{ file: "no-proof-verifier.ts", code: "TS2305", tag: "AL-bind.1", why: "importing a proof-only verifier" },
-	{ file: "legacy-not-forgeable.ts", code: "TS2741", tag: "AL-alg.2", why: "RS256 written as an object literal" },
+const FIXTURES: { file: string; code: string; why: string }[] = [
+	{ file: "profile-requires-replay.ts", code: "TS2345", why: "a profile without a replay store" },
+	{ file: "profile-requires-nonce.ts", code: "TS2345", why: "a profile that does not choose a nonce mode" },
+	{ file: "nonce-required-needs-secrets.ts", code: "TS2345", why: "nonces required with no secret" },
+	{ file: "nonce-off-refuses-secrets.ts", code: "TS2345", why: "nonce secrets with nonces off" },
+	{ file: "forged-verified.ts", code: "TS2322", why: "a DPoPVerifiedJwt built by hand" },
+	{ file: "no-proof-verifier.ts", code: "TS2305", why: "importing a proof-only verifier" },
+	{ file: "legacy-not-forgeable.ts", code: "TS2741", why: "RS256 written as an object literal" },
 ];
 
 const tsc = spawnSync(
@@ -36,8 +36,8 @@ test("the negative type fixtures still fail to compile", () => {
 	assert.notEqual(tsc.status, 0, `tsc accepted the negative fixtures:\n${output}`);
 });
 
-for (const { file, code, tag, why } of FIXTURES) {
-	test(`[${tag}] tsc rejects ${why} (${file}, ${code})`, () => {
+for (const { file, code, why } of FIXTURES) {
+	test(`tsc rejects ${why} (${file}, ${code})`, () => {
 		const lines = output.split("\n").filter((l) => l.includes(`fixtures/${file}`) || l.includes(`fixtures\\${file}`));
 		assert.ok(lines.length > 0, `tsc reported no error for ${file}:\n${output}`);
 		assert.ok(lines.some((l) => l.includes(code)), `expected ${code} in ${file}, got:\n${lines.join("\n")}`);

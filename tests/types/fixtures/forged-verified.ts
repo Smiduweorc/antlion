@@ -1,4 +1,4 @@
-// NEGATIVE FIXTURE: must not compile (AL-bind.1). A DPoPVerifiedJwt comes
+// NEGATIVE FIXTURE: must not compile. A DPoPVerifiedJwt comes
 // out of verifyDPoPRequest and nowhere else.
 
 import type { VerifiedJwt } from "lacewing";

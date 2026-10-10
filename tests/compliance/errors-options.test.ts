@@ -1,6 +1,5 @@
 /**
- * What a refusal tells whom (AL-err), and what the constructors refuse
- * (AL-opt).
+ * What a refusal tells whom, and what the constructors refuse.
  */
 
 import { test } from "node:test";
@@ -33,7 +32,7 @@ import {
 
 const WIRE_ERRORS = new Set(["invalid_request", "invalid_token", "invalid_dpop_proof", "use_dpop_nonce"]);
 
-test("[AL-err.1] every refusal says only an RFC error value and the algorithms, whatever the code", async () => {
+test("every refusal says only an RFC error value and the algorithms, whatever the code", async () => {
 	const { key, token, proof } = await bound();
 	const cases = [
 		request(null, null),
@@ -54,7 +53,7 @@ test("[AL-err.1] every refusal says only an RFC error value and the algorithms, 
 	}
 });
 
-test("[AL-err.1] error messages never repeat the token, the proof, or a claim value", async () => {
+test("error messages never repeat the token, the proof, or a claim value", async () => {
 	const key = await clientKey();
 	const token = await tokenFor(key.jkt);
 	const marker = "SECRET-MARKER-7f3a";
@@ -78,14 +77,14 @@ test("[AL-err.1] error messages never repeat the token, the proof, or a claim va
 	}
 });
 
-test("[AL-err.1] every message starts with the package name", async () => {
+test("every message starts with the package name", async () => {
 	const error = await refused(verifyDPoPRequest(request(null, null), profile()), "missing-authorization");
 	assert.match(error.message, /^antlion-lacewing: /);
 	assert.equal(error.name, "AntlionError");
 	assert.ok(error instanceof Error);
 });
 
-test("[AL-err.2] an error from your own code that Lacewing does not catch comes back unchanged", async () => {
+test("an error from your own code that Lacewing does not catch comes back unchanged", async () => {
 	const { proof, token: jwt } = await bound();
 	const mine = new RangeError("key service unavailable");
 	const keys: KeySource = {
@@ -107,7 +106,7 @@ test("[AL-err.2] an error from your own code that Lacewing does not catch comes 
 	);
 });
 
-test("[AL-err.2] a claimValidator that throws is a Lacewing refusal, so it arrives as token-invalid with your error as the root cause", async () => {
+test("a claimValidator that throws is a Lacewing refusal, so it arrives as token-invalid with your error as the root cause", async () => {
 	const mine = new RangeError("tenant lookup failed");
 	const token = accessTokenProfile({
 		issuer: ISSUER,
@@ -126,7 +125,7 @@ test("[AL-err.2] a claimValidator that throws is a Lacewing refusal, so it arriv
 	assert.equal((error.cause as { cause?: unknown }).cause, mine);
 });
 
-test("[AL-err.2] a refusal raised inside a claimValidator by Lacewing's own error class becomes token-invalid", async () => {
+test("a refusal raised inside a claimValidator by Lacewing's own error class becomes token-invalid", async () => {
 	const token = accessTokenProfile({
 		issuer: ISSUER,
 		audience: AUDIENCE,
@@ -139,7 +138,7 @@ test("[AL-err.2] a refusal raised inside a claimValidator by Lacewing's own erro
 	assert.equal((error.cause as { code?: string }).code, "JWT_CLAIM_VALIDATION_FAILED");
 });
 
-test("[AL-err.2] invalid-request and invalid-options carry no refusal: they are bugs in the calling code", async () => {
+test("invalid-request and invalid-options carry no refusal: they are bugs in the calling code", async () => {
 	const req = await refusedSync(() =>
 		verifyDPoPRequest({ method: "GET", url: "/", headers: {} as Headers }, profile())
 	);
@@ -156,7 +155,7 @@ async function refusedSync(run: () => Promise<unknown>): Promise<AntlionError> {
 	return error;
 }
 
-test("[AL-err.2] a request object that is not a request is refused as invalid-request, before any header is read", async () => {
+test("a request object that is not a request is refused as invalid-request, before any header is read", async () => {
 	const headers = new Headers();
 	const cases: unknown[] = [
 		null,
@@ -195,7 +194,7 @@ function invalid(options: unknown, pattern: RegExp): void {
 	);
 }
 
-test("[AL-opt.1] token, origin, replay and nonce are each required", () => {
+test("token, origin, replay and nonce are each required", () => {
 	invalid(undefined, /options are required/);
 	invalid({ ...base(), token: undefined }, /Lacewing profile/);
 	invalid({ ...base(), token: { typ: "at+jwt" } }, /Lacewing profile/);
@@ -207,7 +206,7 @@ test("[AL-opt.1] token, origin, replay and nonce are each required", () => {
 	invalid({ ...base(), nonce: "Required" }, /nonce is required/);
 });
 
-test("[AL-opt.1] origin must be exactly scheme://host[:port], and the message says what was meant", () => {
+test("origin must be exactly scheme://host[:port], and the message says what was meant", () => {
 	invalid({ ...base(), origin: "https://api.example.com/" }, /did you mean "https:\/\/api\.example\.com"/);
 	invalid({ ...base(), origin: "https://API.example.com" }, /did you mean "https:\/\/api\.example\.com"/);
 	invalid({ ...base(), origin: "https://api.example.com:443" }, /did you mean "https:\/\/api\.example\.com"/);
@@ -220,7 +219,7 @@ test("[AL-opt.1] origin must be exactly scheme://host[:port], and the message sa
 	}
 });
 
-test("[AL-opt.1] maxProofAge must be whole seconds from 1 to 300", () => {
+test("maxProofAge must be whole seconds from 1 to 300", () => {
 	for (const maxProofAge of [0, -1, 301, 1.5, Number.NaN, Number.POSITIVE_INFINITY, "0s", "5 minutes", "1w", ""]) {
 		invalid({ ...base(), maxProofAge }, /maxProofAge/);
 	}
@@ -229,7 +228,7 @@ test("[AL-opt.1] maxProofAge must be whole seconds from 1 to 300", () => {
 	assert.equal(defineDPoPProfile({ ...base(), maxProofAge: "5m" }).maxProofAge, 300);
 });
 
-test("[AL-opt.1] nonce secrets are required with nonces on, refused with nonces off, and 32 bytes or more", () => {
+test("nonce secrets are required with nonces on, refused with nonces off, and 32 bytes or more", () => {
 	const required = { ...base(), nonce: "required" };
 	invalid(required, /needs nonceSecrets/);
 	invalid({ ...required, nonceSecrets: [] }, /needs nonceSecrets/);
@@ -240,7 +239,7 @@ test("[AL-opt.1] nonce secrets are required with nonces on, refused with nonces 
 	assert.equal(defineDPoPProfile({ ...required, nonceSecrets: [NONCE_SECRET] } as DPoPProfileOptions).nonce, "required");
 });
 
-test("[AL-opt.1] a nonce secret is copied, so changing the caller's array later changes nothing", async () => {
+test("a nonce secret is copied, so changing the caller's array later changes nothing", async () => {
 	const secret = new Uint8Array(32).fill(3);
 	const dpop = defineDPoPProfile({ ...base(), nonce: "required", nonceSecrets: [secret], now: () => 0 });
 	const { key, token } = await bound();
@@ -252,7 +251,7 @@ test("[AL-opt.1] a nonce secret is copied, so changing the caller's array later 
 	assert.equal(result.jkt, key.jkt);
 });
 
-test("[AL-opt.1] now must be a function; it defaults to Date.now", async () => {
+test("now must be a function; it defaults to Date.now", async () => {
 	invalid({ ...base(), now: 12 }, /now must be a function/);
 	const { key, token } = await bound();
 	const proof = await proofFor(key, token, {}, Date.now());
@@ -260,14 +259,14 @@ test("[AL-opt.1] now must be a function; it defaults to Date.now", async () => {
 	assert.equal(result.jkt, key.jkt);
 });
 
-test("[AL-opt.1] a profile is frozen", () => {
+test("a profile is frozen", () => {
 	const dpop = defineDPoPProfile(base());
 	assert.equal(Object.isFrozen(dpop), true);
 	assert.equal(dpop.nonce, "off");
 	assert.equal(dpop.maxProofAge, 60);
 });
 
-test("[AL-opt.1] SingleProcessReplayStore requires maxEntries, a whole number from 1, and a function for now", () => {
+test("SingleProcessReplayStore requires maxEntries, a whole number from 1, and a function for now", () => {
 	for (const maxEntries of [undefined, 0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, "10"]) {
 		assert.throws(
 			() => new SingleProcessReplayStore({ maxEntries } as never),

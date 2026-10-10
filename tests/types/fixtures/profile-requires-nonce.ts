@@ -1,4 +1,4 @@
-// NEGATIVE FIXTURE: must not compile (AL-nonce.1). Nonce mode has no default;
+// NEGATIVE FIXTURE: must not compile. Nonce mode has no default;
 // leaving it out is not a choice.
 
 import { accessTokenProfile } from "lacewing";

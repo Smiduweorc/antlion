@@ -13,7 +13,7 @@ import { DPOP_REQUEST_HEADERS, DPOP_RESPONSE_HEADERS } from "../../index.js";
 
 const README = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "README.md"), "utf8");
 
-test("[AL-cors.1] the CORS header names are exported, frozen, and named in the README", () => {
+test("the CORS header names are exported, frozen, and named in the README", () => {
 	assert.deepEqual(DPOP_REQUEST_HEADERS, ["Authorization", "DPoP"]);
 	assert.deepEqual(DPOP_RESPONSE_HEADERS, ["WWW-Authenticate", "DPoP-Nonce"]);
 	assert.equal(Object.isFrozen(DPOP_REQUEST_HEADERS), true);
@@ -24,12 +24,12 @@ test("[AL-cors.1] the CORS header names are exported, frozen, and named in the R
 	assert.match(README, /Access-Control-Expose-Headers/);
 });
 
-test("[AL-scope.1] the README says DPoP stops replay but not a compromised client", () => {
+test("the README says DPoP stops replay but not a compromised client", () => {
 	assert.match(README, /\*\*It stops replay, not theft\.\*\*/);
 	assert.match(README, /XSS running inside the client can still use the key/);
 });
 
-test("[AL-scope.1] the README says DPoP hides nothing and is not stateless", () => {
+test("the README says DPoP hides nothing and is not stateless", () => {
 	assert.match(README, /\*\*It hides nothing\.\*\*/);
 	assert.match(README, /\*\*It isn't stateless\.\*\*/);
 	assert.match(README, /there is no safe DPoP verifier that is stateless/);

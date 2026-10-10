@@ -1,4 +1,4 @@
-// NEGATIVE FIXTURE: must not compile (AL-nonce.1). Nonces without a secret
+// NEGATIVE FIXTURE: must not compile. Nonces without a secret
 // could only be predictable or per-node.
 
 import { accessTokenProfile } from "lacewing";

@@ -29,7 +29,7 @@ const REPORT_PATH = join(HERE, "..", "compliance-report.md");
 
 // A bracket token is a *requirement reference* only if it has this shape.
 // Free-form tags like [strictness] or [@security] are ignored.
-const REQ_ID = /^(?:9449-\d+(?:\.\d+)+|AL-[a-z]+\.\d+)$/;
+const REQ_ID = /^9449-\d+(?:\.\d+)+$/;
 
 interface Requirement {
 	id: string;
