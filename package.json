@@ -1,6 +1,6 @@
 {
 	"name": "antlion-lacewing",
-	"version": "0.0.0",
+	"version": "1.0.0",
 	"description": "DPoP (RFC 9449) proof verification for Lacewing: one call checks the access token, the proof and the key binding together, or rejects the request.",
 	"type": "module",
 	"engines": {
