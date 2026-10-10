@@ -5,8 +5,10 @@
  * profile or store built wrong, a request object that is not a request) and
  * carry no {@link DPoPRefusal}; answer them with a 500. `replay-store-full`
  * comes from {@link SingleProcessReplayStore} and reaches you as the `cause`
- * of a `replay-store-failed`. Every other code is a refused request, and the
- * error's `refusal` says what to send back.
+ * of a `replay-store-failed`, as does a `replay-store-failed` from the Redis
+ * or Postgres store when its database replies something it can't read.
+ * Every other code is a refused request, and the error's `refusal` says what
+ * to send back.
  */
 export type AntlionErrorCode =
 	| "invalid-options"
@@ -64,7 +66,7 @@ export interface DPoPRefusal {
 export class AntlionError extends Error {
 	override readonly name = "AntlionError";
 	readonly code: AntlionErrorCode;
-	/** What to send the client. Undefined for `invalid-options`, `invalid-request` and `replay-store-full`. */
+	/** What to send the client. Undefined for `invalid-options`, `invalid-request`, and the errors a store throws (`replay-store-full`, and `replay-store-failed` from a store). */
 	readonly refusal: DPoPRefusal | undefined;
 
 	constructor(

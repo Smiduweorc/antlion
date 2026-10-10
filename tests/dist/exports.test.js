@@ -43,6 +43,24 @@ test("the node export is exactly fromNodeRequest", async () => {
 	assert.equal(request.headers.get("dpop"), "a, b");
 });
 
+test("the redis export is exactly RedisReplayStore, and it sends one SET NX", async () => {
+	const redis = await import(`${manifest.name}/redis`);
+	assert.deepEqual(Object.keys(redis), ["RedisReplayStore"]);
+	const sent = [];
+	const store = new redis.RedisReplayStore({ client: { sendCommand: async (args) => (sent.push(args), "OK") }, prefix: "p:" });
+	assert.equal(await store.addIfAbsent("k", 6), true);
+	assert.deepEqual(sent, [["SET", "p:k", "1", "PX", "6000", "NX"]]);
+});
+
+test("the postgres export is exactly PostgresReplayStore, and it sends one insert", async () => {
+	const postgres = await import(`${manifest.name}/postgres`);
+	assert.deepEqual(Object.keys(postgres), ["PostgresReplayStore"]);
+	const sent = [];
+	const client = { query: async (text, values) => (sent.push([text, values]), { rowCount: 1 }) };
+	assert.equal(await new postgres.PostgresReplayStore({ client, table: "t" }).addIfAbsent("k", 6), true);
+	assert.deepEqual(sent[0][1], ["k", 6000]);
+});
+
 test("the built package verifies a request end to end", async () => {
 	const { accessTokenProfile, generateKeyPair, newAccessToken } = await import("lacewing");
 	const { calculateJwkThumbprint, base64url } = await import("jose");

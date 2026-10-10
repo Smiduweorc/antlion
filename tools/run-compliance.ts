@@ -18,7 +18,7 @@ const GATE = join(HERE, "compliance-gate.ts");
 
 const test = spawnSync(
 	process.execPath,
-	["--import", "tsx", "--test", "--test-reporter=tap", "tests/**/*.test.ts"],
+	["--import", "tsx", "--test", "--test-reporter=tap", "tests/!(services)/**/*.test.ts"],
 	{ cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }
 );
 

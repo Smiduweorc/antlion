@@ -10,6 +10,8 @@
 		"../index.ts",
 		"../legacy.ts",
 		"../node.ts",
+		"../redis.ts",
+		"../postgres.ts",
 		"../src/**/*.ts",
 		"../tools/**/*.ts"
 	],

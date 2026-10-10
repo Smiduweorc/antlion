@@ -5,9 +5,9 @@ import { AntlionError } from "./errors.js";
  *
  * `addIfAbsent` must check and record in one atomic step: resolve `true` if
  * this call recorded the key, `false` if it was already there. A read
- * followed by a write lets two copies of one proof both through. In Redis
- * that is `SET key 1 NX EX ttlSeconds`; in Postgres, `INSERT ... ON CONFLICT
- * DO NOTHING` on a table whose expired rows you delete on a schedule.
+ * followed by a write lets two copies of one proof both through.
+ * `RedisReplayStore` (`antlion-lacewing/redis`) and `PostgresReplayStore`
+ * (`antlion-lacewing/postgres`) implement it for a fleet.
  *
  * Throwing, rejecting, or resolving anything but a boolean refuses the
  * request. Keys are at most 87 characters of base64url and one `:`.
@@ -35,7 +35,7 @@ export interface SingleProcessReplayStoreOptions {
  * `addIfAbsent` is atomic here because there is no `await` between its check
  * and its write, which holds in one JavaScript process and nowhere else. Two
  * processes with one of these each accept every proof twice. Past one
- * process, use a store shared by all of them.
+ * process, use `RedisReplayStore` or `PostgresReplayStore`.
  */
 export class SingleProcessReplayStore implements ReplayStore {
 	/** key -> expiry in milliseconds. Map order is insertion order. */

@@ -78,3 +78,68 @@ jobs:
         with:
           name: compliance-report
           path: compliance-report.md
+
+  # What needs something outside Node: the shared replay stores against a
+  # real Redis and Postgres, several processes sharing them, and Nimbus (Java)
+  # as a live client. Service containers only run on Linux runners; what the
+  # stores send is plain protocol, so the client's operating system changes
+  # nothing here, and the unit tests for both stores run on every leg above.
+  services:
+    name: Redis, Postgres and Nimbus
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:8
+        # Redis's default maxmemory-policy is noeviction, which is what the
+        # deployment guide asks for.
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 15
+        ports:
+          - 6379:6379
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: antlion
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 15
+        ports:
+          - 5432:5432
+
+    env:
+      ANTLION_TEST_REDIS_URL: redis://localhost:6379
+      ANTLION_TEST_POSTGRES_URL: postgres://postgres:antlion@localhost:5432/postgres
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+          cache-dependency-path: tools/golden/nimbus/pom.xml
+
+      - name: Fetch the Nimbus jars
+        working-directory: tools/golden/nimbus
+        run: mvn -q dependency:copy-dependencies -DoutputDirectory=lib
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run the service tests
+        run: npm run test:services

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Fetches Nimbus and Tink for NimbusDPoP.java; see its header for how to run it. -->
+<!-- Fetches Nimbus and Tink for NimbusDPoP.java and NimbusLiveClient.java; see their headers for how to run them. -->
 <project xmlns="http://maven.apache.org/POM/4.0.0">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>antlion.golden</groupId>
