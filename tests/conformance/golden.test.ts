@@ -40,7 +40,7 @@ function expecting(method: string, uri: string): { algorithms: readonly string[]
 	return { algorithms: PROOF_ALGORITHMS, method, htu: normalizeHtu(uri) as string };
 }
 
-test("[AL-bind.2] [9449-6.1.1] RFC 9449 figure 13 verifies, and its key's thumbprint is the RFC's jkt", async () => {
+test("[9449-6.1.1] RFC 9449 figure 13 verifies, and its key's thumbprint is the RFC's jkt", async () => {
 	const proof = await checkProof(RFC9449_FIGURE_13, expecting("GET", "https://resource.example.org/protectedresource"));
 	assert.equal(proof.jkt, RFC9449_JKT);
 	assert.equal(proof.jti, "e1j3V_bKic8-LAEB");
@@ -48,7 +48,7 @@ test("[AL-bind.2] [9449-6.1.1] RFC 9449 figure 13 verifies, and its key's thumbp
 	assert.equal(proof.ath, "fUHyO2r2Z3DZ53EsNrWBb0xWXoaNy59IiKCAqksmQEo");
 });
 
-test("[AL-req.3] RFC 9449 figure 13's ath is the SHA-256 of figure 13's token, computed the way Antlion computes it", async () => {
+test("RFC 9449 figure 13's ath is the SHA-256 of figure 13's token, computed the way Antlion computes it", async () => {
 	assert.equal(await sha256(RFC9449_TOKEN), "fUHyO2r2Z3DZ53EsNrWBb0xWXoaNy59IiKCAqksmQEo");
 });
 
@@ -70,7 +70,7 @@ test("[9449-4.2.5] RFC 9449 figure 2, a token-endpoint proof with no ath, is ref
 	);
 });
 
-test("[AL-bind.2] the RFC 7638 section 3.1 key hashes to the RFC's thumbprint after a CryptoKey round trip", async () => {
+test("the RFC 7638 section 3.1 key hashes to the RFC's thumbprint after a CryptoKey round trip", async () => {
 	// Antlion hashes the CryptoKey jose verified with, not the header's JSON,
 	// so an import and export must not change a member.
 	const jwk = {
@@ -92,7 +92,7 @@ test("the python-cryptography and Nimbus fixtures are all present", () => {
 });
 
 for (const file of golden) {
-	test(`[AL-bind.2] [9449-4.3.6] ${file}: a proof from another implementation verifies, and the thumbprint matches its own`, async () => {
+	test(`[9449-4.3.6] ${file}: a proof from another implementation verifies, and the thumbprint matches its own`, async () => {
 		const fixture = JSON.parse(readFileSync(join(GOLDEN, file), "utf8")) as {
 			proof: string;
 			method: string;

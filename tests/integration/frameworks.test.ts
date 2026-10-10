@@ -141,7 +141,7 @@ after(async () => {
 });
 
 for (const framework of servers) {
-	test(`[AL-node.1] ${framework.name}: a valid request verifies against the full path the client signed`, async () => {
+	test(`${framework.name}: a valid request verifies against the full path the client signed`, async () => {
 		const server = await framework.start(dpopProfile("off"));
 		running.push(server.close);
 		const key = await clientKey();
@@ -154,7 +154,7 @@ for (const framework of servers) {
 		assert.deepEqual(outcome.body, { sub: "user-42" });
 	});
 
-	test(`[AL-node.1] [AL-hdr.2] ${framework.name}: two Authorization headers on the wire are a 400`, async () => {
+	test(`${framework.name}: two Authorization headers on the wire are a 400`, async () => {
 		const server = await framework.start(dpopProfile("off"));
 		running.push(server.close);
 		const key = await clientKey();
@@ -169,7 +169,7 @@ for (const framework of servers) {
 		assert.deepEqual(outcome.body, { code: "duplicate-authorization" });
 	});
 
-	test(`[AL-node.1] [9449-4.3.1] ${framework.name}: two DPoP headers on the wire are refused`, async () => {
+	test(`[9449-4.3.1] ${framework.name}: two DPoP headers on the wire are refused`, async () => {
 		const server = await framework.start(dpopProfile("off"));
 		running.push(server.close);
 		const key = await clientKey();
@@ -184,7 +184,7 @@ for (const framework of servers) {
 		assert.deepEqual(outcome.body, { code: "duplicate-proof" });
 	});
 
-	test(`[AL-node.1] [9449-9.1] ${framework.name}: the nonce challenge and its retry survive the framework`, async () => {
+	test(`[9449-9.1] ${framework.name}: the nonce challenge and its retry survive the framework`, async () => {
 		const server = await framework.start(dpopProfile("required"));
 		running.push(server.close);
 		const key = await clientKey();
@@ -207,7 +207,7 @@ for (const framework of servers) {
 	});
 }
 
-test("[AL-node.1] under a mounted router, req.url alone would name the wrong URI", async () => {
+test("under a mounted router, req.url alone would name the wrong URI", async () => {
 	// The reason the adapter prefers originalUrl: without it, Express behind
 	// app.use("/api", router) would compare htu against /accounts/42.
 	const key = await clientKey();
@@ -220,14 +220,14 @@ test("[AL-node.1] under a mounted router, req.url alone would name the wrong URI
 	assert.equal((await verifyDPoPRequest(fromNodeRequest(withOriginal), dpopProfile("off"))).jkt, key.jkt);
 });
 
-test("[AL-node.1] an explicit url wins over originalUrl and url", async () => {
+test("an explicit url wins over originalUrl and url", async () => {
 	const request = fromNodeRequest({ method: "GET", url: "/a", originalUrl: "/b", headersDistinct: {} }, "/c");
 	assert.equal(request.url, "/c");
 	assert.equal(fromNodeRequest({ method: "GET", url: "/a", originalUrl: "/b", headersDistinct: {} }).url, "/b");
 	assert.equal(fromNodeRequest({ method: "GET", url: "/a", headersDistinct: {} }).url, "/a");
 });
 
-test("[AL-node.1] only Authorization and DPoP are copied, repeats kept", () => {
+test("only Authorization and DPoP are copied, repeats kept", () => {
 	const request = fromNodeRequest({
 		method: "POST",
 		url: "/",
@@ -239,13 +239,13 @@ test("[AL-node.1] only Authorization and DPoP are copied, repeats kept", () => {
 	assert.deepEqual([...request.headers.keys()].sort(), ["authorization", "dpop"]);
 });
 
-test("[AL-node.1] something that is not a Node request is refused as invalid-request", () => {
+test("something that is not a Node request is refused as invalid-request", () => {
 	for (const value of [null, {}, { headers: { authorization: "DPoP x" } }, { headersDistinct: null }]) {
 		assert.throws(() => fromNodeRequest(value as never), { code: "invalid-request" });
 	}
 });
 
-test("[AL-node.1] a missing method or url becomes a request verifyDPoPRequest refuses as invalid-request", async () => {
+test("a missing method or url becomes a request verifyDPoPRequest refuses as invalid-request", async () => {
 	for (const req of [{ url: "/", headersDistinct: {} }, { method: "GET", headersDistinct: {} }]) {
 		const error = await verifyDPoPRequest(fromNodeRequest(req), dpopProfile("off")).catch((e: unknown) => e);
 		assert.equal((error as AntlionError).code, "invalid-request");

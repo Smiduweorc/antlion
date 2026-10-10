@@ -74,7 +74,7 @@ test("[9449-4.3.2] any string in the DPoP header is refused cleanly", async () =
 	);
 });
 
-test("[AL-hdr.3] any string in the Authorization header is refused cleanly", async () => {
+test("any string in the Authorization header is refused cleanly", async () => {
 	const { proof } = await bound();
 	await fc.assert(
 		fc.asyncProperty(fc.string({ unit: "binary-ascii", maxLength: 200 }), async (value) => {
@@ -108,7 +108,7 @@ test("[9449-4.3.3] correctly signed proofs with arbitrary JSON header and payloa
 	);
 });
 
-test("[AL-time.2] a proof is accepted exactly when its iat is within [now - maxProofAge, now + 5]", async () => {
+test("a proof is accepted exactly when its iat is within [now - maxProofAge, now + 5]", async () => {
 	const { key, token } = await bound();
 	await fc.assert(
 		fc.asyncProperty(fc.integer({ min: -400_000, max: 400_000 }), async (offsetMs) => {

@@ -45,7 +45,7 @@ function dpopProfile(nonce: "off" | "required"): DPoPProfile {
 const client: oauth.Client = { client_id: "antlion-interop" };
 
 for (const alg of ["ES256", "PS256", "Ed25519"] as const) {
-	test(`[9449-7.1.1] [AL-bind.2] an oauth4webapi ${alg} client's requests verify`, async () => {
+	test(`[9449-7.1.1] an oauth4webapi ${alg} client's requests verify`, async () => {
 		const keyPair = await oauth.generateKeyPair(alg);
 		const handle = oauth.DPoP(client, keyPair);
 		const token = await tokenFor(await handle.calculateThumbprint());
@@ -65,7 +65,7 @@ for (const alg of ["ES256", "PS256", "Ed25519"] as const) {
 	});
 }
 
-test("[9449-9.1] [AL-nonce.2] oauth4webapi reads Antlion's use_dpop_nonce challenge and its retry verifies", async () => {
+test("[9449-9.1] oauth4webapi reads Antlion's use_dpop_nonce challenge and its retry verifies", async () => {
 	const keyPair = await oauth.generateKeyPair("ES256");
 	const handle = oauth.DPoP(client, keyPair);
 	const token = await tokenFor(await handle.calculateThumbprint());
