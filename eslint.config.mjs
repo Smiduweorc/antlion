@@ -3,7 +3,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
 	{
-		ignores: ["dist/**", "docs/**", "node_modules/**"],
+		ignores: ["dist/**", "docs/**", "node_modules/**", ".stryker-tmp/**", "reports/**"],
 	},
 	js.configs.recommended,
 	...tseslint.configs.recommended,
@@ -34,7 +34,7 @@ export default tseslint.config(
 				{ allowExpressions: true },
 			],
 			// Verifying against a key carried in the JWT's own header is right
-			// for a DPoP proof and a forgery for an access token (AL-key.1).
+			// for a DPoP proof and a forgery for an access token.
 			"no-restricted-imports": [
 				"error",
 				{

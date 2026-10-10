@@ -1,0 +1,15 @@
+{
+	"$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+	"plugins": ["@stryker-mutator/tap-runner"],
+	"testRunner": "tap",
+	"tap": {
+		"testFiles": ["tests/!(services|types)/**/*.test.ts"],
+		"nodeArgs": ["--test-reporter=tap", "--import", "tsx"]
+	},
+	"mutate": ["src/verify.ts", "src/proof.ts", "src/replay-store.ts"],
+	"coverageAnalysis": "perTest",
+	"reporters": ["clear-text", "progress", "html"],
+	"htmlReporter": { "fileName": "reports/mutation/index.html" },
+	"tempDirName": ".stryker-tmp",
+	"concurrency": 8
+}
