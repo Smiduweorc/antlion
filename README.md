@@ -62,7 +62,7 @@ defineDPoPProfile:
 ```
 
 - **The origin** is the one your clients sign against, written the way a URL parser prints it: lowercase host, no default port, no trailing slash. `htu` must equal it plus the request's path, after RFC 3986 normalisation, with the query and fragment removed. Anything else is refused when the profile is built, with a message saying what you meant.
-- **The replay store** holds each proof's key thumbprint and a hash of its `jti` for as long as the proof could still be fresh (`maxProofAge` plus six seconds). `SingleProcessReplayStore` is for one process and for tests, and its name says so; it also needs a `maxEntries`, and when it is full it refuses requests rather than forget a proof early. Across a fleet, the store is `SET key 1 NX EX ttlSeconds` in Redis or `INSERT ... ON CONFLICT DO NOTHING` in Postgres. If the store errors, the request is refused.
+- **The replay store** holds each proof's key thumbprint and a hash of its `jti` for as long as the proof could still be fresh (`maxProofAge` plus six seconds). `SingleProcessReplayStore` is for one process and for tests, and its name says so; it also needs a `maxEntries`, and when it is full it refuses requests rather than forget a proof early. Across a fleet, `RedisReplayStore` and `PostgresReplayStore` share one store between every process, through the Redis or Postgres client you already have. If the store errors, the request is refused.
 - **Nonces** are a trade. `"required"` costs an extra round trip whenever a client's nonce is stale, and stops proofs being generated ahead of time with a lying clock. `"off"` trusts the client's `iat`. When they are on, a nonce is an HMAC over the second it was issued and the origin, valid for `maxProofAge`, so nothing is stored, every node with the same `nonceSecrets` accepts the same nonces, and rotating is putting a new secret first in the list.
 
 One more setting has a default, and it is the strict one. `maxProofAge`, how old a proof's `iat` may be, is 60 seconds and can be raised to 300 at most, which is what oauth4webapi allows. A client clock running up to 5 seconds ahead is accepted, and that is not configurable.
@@ -123,17 +123,22 @@ One more setting has a default, and it is the strict one. `maxProofAge`, how old
    await verifyDPoPRequest(fromNodeRequest(ctx.req, ctx.originalUrl), dpop); // Koa
    ```
 
-4. Past one process, give every process the same store. With node-redis:
+4. Past one process, give every process the same store, built on the client you already have. Antlion imports neither client, and adds no dependency:
 
    ```ts
-   import type { ReplayStore } from "antlion-lacewing";
+   import { RedisReplayStore } from "antlion-lacewing/redis";
 
-   const replay: ReplayStore = {
-   	async addIfAbsent(key, ttlSeconds) {
-   		return (await redis.set(`dpop:${key}`, "1", { NX: true, EX: ttlSeconds })) === "OK";
-   	},
-   };
+   const replay = new RedisReplayStore({ client: redis, prefix: "dpop:" }); // ioredis or node-redis
    ```
+
+   ```ts
+   import { PostgresReplayStore } from "antlion-lacewing/postgres";
+
+   const replay = new PostgresReplayStore({ client: pool, table: "dpop_replay" }); // a pg Pool
+   setInterval(() => replay.deleteExpired().catch(console.error), 60_000); // or your own scheduler
+   ```
+
+   The Postgres table is yours to create, and its statement is in the `PostgresReplayStore` docs. [Deployment](./guides/deployment.md) covers which store fits which setup.
 
 5. To turn nonces on, pass `nonce: "required"` and `nonceSecrets: [secret]`, where `secret` is at least 32 random bytes (`crypto.getRandomValues(new Uint8Array(32))`, stored where your other secrets are) and is the same on every node. A verified request then carries `nextNonce`; send it back as `DPoP-Nonce` with `Cache-Control: no-store`, and clients never wait for a 401 to learn it.
 
@@ -154,6 +159,9 @@ People expect more from DPoP than it gives, and then expect it from Antlion.
 | [Boundaries](./guides/boundaries.md) | What Antlion owns, what it will never do, and where that work goes |
 | [With panva's tools](./guides/panva.md) | `oidc-provider` and `openid-client` around Antlion, what has to match, and when to use `oauth4webapi` instead |
 | [Frameworks](./guides/frameworks.md) | A WHATWG `Request`, Node's `http`, Express, Fastify and Koa: building the request and sending the refusal |
+| [Deployment](./guides/deployment.md) | Choosing a replay store, sizing it, nonces across nodes, rolling deploys and clock skew |
+| [Threat model](./guides/threat-model.md) | What is protected, against whom, what is assumed, and what is out of scope |
+| [Verification](./guides/verification.md) | Mutation score, fuzzing, the attack corpus, live interop, and the FAPI suite's status |
 
 ## Where it sits
 
@@ -179,6 +187,7 @@ Antlion reads the headers, verifies the proof, hands the token to your Lacewing 
 - **Node drops a duplicate `Authorization` header.** `req.headers` keeps the first one. `fromNodeRequest` reads `req.headersDistinct` instead; if you build the request yourself, do the same, or a second header goes unnoticed.
 - **A throwing `claimValidators` function is a refused token.** Lacewing counts it as a failed claim, so it arrives as `token-invalid` with your error at the end of the `cause` chain. An error from your own code that Lacewing does not catch, such as a `KeySource` you wrote or the `now` clock, comes back unchanged.
 - **Two clocks.** The profile's `now` drives proof freshness and nonces. The access token's `exp` and age are Lacewing's, on `Date.now`.
+- **Nodes sharing a replay store need clocks within one second of each other.** Each node judges `iat` on its own clock, and a replay key lives `maxProofAge + 6` seconds. From one second of difference on, a proof accepted early by the faster node can be accepted again late by the slower one. [Deployment](./guides/deployment.md#clocks) has the arithmetic and the test.
 - **The numbers below are from one laptop.** Re-run them with `npm run bench`, or on a GitHub runner with the Bench workflow.
 
 ## Performance
@@ -226,6 +235,8 @@ Each of those is either impossible to express in Antlion or enforced on every re
 | `npm run lint:fix` | Run ESLint and fix what it can. |
 | `npm test` | Run the test suite with the Node test runner via `tsx`. |
 | `npm run test:dist` | Build, then test the built package through its `exports` map. |
+| `npm run test:services` | Test the Redis and Postgres stores, several processes sharing them, and a live Nimbus client. Needs `ANTLION_TEST_REDIS_URL`, `ANTLION_TEST_POSTGRES_URL`, a JDK and the Nimbus jars; the CI `services` job sets all of them up. |
+| `npm run mutation` | Mutation-test the verifier with Stryker and report what the tests miss; writes `reports/mutation/`. |
 | `npm run bench` | Time verification and early refusals, and print a Markdown table with the machine it ran on. |
 | `npm run compliance` | Run the suite and fail if any requirement in `tests/compliance/requirements.json` has no passing test; writes `compliance-report.md`. |
 | `npm run docs` | Generate the API reference into `docs/` with TypeDoc. |

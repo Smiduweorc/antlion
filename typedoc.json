@@ -1,13 +1,14 @@
 {
 	"$schema": "https://typedoc.org/schema.json",
-	"entryPoints": ["index.ts", "legacy.ts", "node.ts"],
-	"projectDocuments": ["guides/boundaries.md", "guides/panva.md", "guides/frameworks.md"],
+	"entryPoints": ["index.ts", "legacy.ts", "node.ts", "redis.ts", "postgres.ts"],
+	"projectDocuments": ["guides/boundaries.md", "guides/panva.md", "guides/frameworks.md", "guides/deployment.md", "guides/threat-model.md", "guides/verification.md"],
 	"out": "docs",
 	"includeVersion": true,
 	"excludePrivate": true,
 	"excludeInternal": true,
 	"readme": "README.md",
 	"treatWarningsAsErrors": true,
+	"highlightLanguages": ["bash", "console", "css", "html", "javascript", "json", "jsonc", "json5", "sh", "sql", "tsx", "typescript", "yaml"],
 	"navigationLinks": {
 		"GitHub": "https://github.com/Smiduweorc/antlion",
 		"Smiduweorc": "https://smiduweorc.github.io/"

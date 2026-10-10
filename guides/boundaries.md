@@ -39,7 +39,10 @@ Antlion adds refusals to it without loosening a single one of Lacewing's.
   can rotate.
 - **Replay.** Each proof is accepted once, recorded through a store contract
   with one atomic method. The store is asked last, and a store error is a
-  refusal.
+  refusal. Three stores ship: `SingleProcessReplayStore` for one process,
+  and `RedisReplayStore` (`antlion-lacewing/redis`) and `PostgresReplayStore`
+  (`antlion-lacewing/postgres`) for a fleet. Each shared store is the one
+  atomic statement the contract names, sent through a client you pass in.
 - **The order of all of the above**, which is fixed: cheap checks, then
   signatures, then the binding, then the store.
 - **The refusal on the wire.** The 401 (or 400 for a duplicated or
@@ -61,7 +64,10 @@ Antlion adds refusals to it without loosening a single one of Lacewing's.
 | Accepting `Bearer` on a DPoP route | An endpoint that accepts both is only as strong as `Bearer`, so the binding protects nothing. | Two routes, two profiles: a plain Lacewing profile for the old traffic, an Antlion profile for the new, chosen by your router rather than by the client. |
 | Working out the request URL | `Host`, `X-Forwarded-*` and `Forwarded` are set by the client or by the nearest proxy. An `htu` checked against them checks the attacker's own claim. | `origin`, required. |
 | Deciding whether nonces are on | A nonce costs a round trip and closes pre-generated proofs. Which matters more is a property of your clients and your threat model. | `nonce: "required" \| "off"`, required, with no default. |
-| Choosing the replay store | Twenty nodes with twenty memory stores accept the same proof twenty times. Only your deployment knows what is shared. | A store you pass in. The contract is one atomic `addIfAbsent`: `SET key 1 NX EX ttlSeconds` in Redis, `INSERT ... ON CONFLICT DO NOTHING` in Postgres. |
+| Choosing the replay store | Twenty nodes with twenty memory stores accept the same proof twenty times. Only your deployment knows what is shared. | A store you pass in: one of the three that ship, or your own with one atomic `addIfAbsent`. |
+| The Redis or Postgres connection | Connecting, pooling, timeouts, TLS, reconnecting, failover and closing are how your service talks to its database, and you already decided them. A second client inside Antlion would be a second set of decisions, and a runtime dependency. | Your client (`ioredis`, `node-redis`, `pg`), passed to the store. Antlion imports none of them. |
+| Creating the Postgres table, and deleting its expired rows on a schedule | A schema change belongs with your other migrations, and a timer started by a library keeps your process alive and runs when you didn't ask. | Your migrations, with the statement in the `PostgresReplayStore` docs. Call `deleteExpired()` from your own scheduler. |
+| Surviving a failover without losing a write | A proof accepted by a primary that dies before replicating it can be accepted once more by the new primary, until it expires. Redis always replicates asynchronously; Postgres does by default. | Your database setup: Postgres with synchronous replication closes the gap, Redis can't. |
 | mTLS (RFC 8705) | A different binding at a different layer, which needs the client certificate to reach the service. | Not here. |
 | Opaque tokens and introspection | A JWT access token carries `cnf.jkt` itself. Introspection is a network call and a cache, with failure modes of its own. | Out of v1, and possibly for good. |
 | Protecting a compromised client | Code running inside the client can use the key to sign fresh proofs. No check on the server can tell that apart from the real client. | The client: non-extractable WebCrypto keys, a content security policy, and not getting XSS'd. |
@@ -76,9 +82,11 @@ Antlion adds refusals to it without loosening a single one of Lacewing's.
 
 The in-memory replay store is for one process and for tests. Its check and
 its write happen with no `await` between them, which makes it atomic in one
-JavaScript process and in no other situation. The store contract is written so
-that moving to Redis or Postgres is a constructor change, and the package
-will not pretend a memory store is anything else.
+JavaScript process and in no other situation. Moving to Redis or Postgres is
+a constructor change, and the package will not pretend a memory store is
+anything else. `tests/services/multi-process.test.ts` starts four Node
+processes and sends each the same proof at once: with a shared store one
+accepts it, and with a memory store in each, all four do.
 
 Nonces are the other half of this. Each is an HMAC over the second it was
 issued, rather than an entry in a list the server remembers, so every node
