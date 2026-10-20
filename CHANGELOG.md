@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.1] - 2026-10-20
+
+### Refactor
+
+- Migration for lacewing 2.x
+
 ## [1.0.0] - 2026-10-10
 
 ### Bug Fixes
