@@ -86,7 +86,7 @@
 		"ioredis": "^6.0.0",
 		"koa": "^3.2.1",
 		"koa-mount": "^4.2.0",
-		"lacewing": "^1.2.1",
+		"lacewing": "^2.0.0",
 		"lefthook": "^2.2.1",
 		"oauth4webapi": "^3.8.8",
 		"pg": "^8.23.1",
@@ -97,7 +97,7 @@
 		"typescript-eslint": "^8.71.1"
 	},
 	"peerDependencies": {
-		"lacewing": "^1.2.0"
+		"lacewing": "^2.0.0"
 	},
 	"dependencies": {
 		"jose": "^6.2.12"

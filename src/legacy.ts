@@ -4,21 +4,19 @@
  * wherever you control the client.
  */
 
-import { enableLegacyRS256 } from "lacewing/legacy/rs256";
+import { LEGACY_RS256 } from "lacewing/legacy/rsa";
 import type { LegacyProofAlgorithm } from "./algorithms.js";
 
-const RS256 = Object.freeze({ name: "RS256" }) as LegacyProofAlgorithm;
+const RS256 = Object.freeze({ name: "RS256", lacewing: LEGACY_RS256 }) as LegacyProofAlgorithm;
 
 /**
  * Accept `RS256` proofs on a profile:
  * `defineDPoPProfile({ ..., legacyAlgorithms: [legacyRS256Proofs()] })`.
  *
- * Calling it also calls Lacewing's `enableLegacyRS256()`, which puts `RS256`
- * in Lacewing's registry for the whole process. That makes RS256 keys
- * importable in Lacewing; no Lacewing profile accepts RS256 tokens unless its
- * own `algorithms` lists it.
+ * It carries Lacewing's `LEGACY_RS256` descriptor and changes nothing outside
+ * the profile it is passed to: no other DPoP profile, and no Lacewing
+ * profile, accepts RS256 because of it.
  */
 export function legacyRS256Proofs(): LegacyProofAlgorithm {
-	enableLegacyRS256();
 	return RS256;
 }

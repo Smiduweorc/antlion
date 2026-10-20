@@ -22,7 +22,7 @@ const FIXTURES: { file: string; code: string; why: string }[] = [
 	{ file: "nonce-off-refuses-secrets.ts", code: "TS2345", why: "nonce secrets with nonces off" },
 	{ file: "forged-verified.ts", code: "TS2322", why: "a DPoPVerifiedJwt built by hand" },
 	{ file: "no-proof-verifier.ts", code: "TS2305", why: "importing a proof-only verifier" },
-	{ file: "legacy-not-forgeable.ts", code: "TS2741", why: "RS256 written as an object literal" },
+	{ file: "legacy-not-forgeable.ts", code: "TS2739", why: "RS256 written as an object literal" },
 ];
 
 const tsc = spawnSync(

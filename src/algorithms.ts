@@ -1,10 +1,12 @@
+import type { AlgorithmInfo } from "lacewing/extension";
+
 /**
  * The FAPI 2.0 proof algorithms. Ed25519 is listed under both names: panva's
  * clients write RFC 9864's `Ed25519` into the proof header and never
  * `EdDSA`, so accepting only `EdDSA` would refuse every one of them.
  *
  * `none` and HMAC are not on the list and nothing adds them. The key type,
- * curve and minimum size for each name come from Lacewing's registry through
+ * curve and minimum size for each name come from Lacewing's algorithm table through
  * `lacewing/extension`, so the two packages cannot disagree about them.
  */
 export const PROOF_ALGORITHMS: readonly string[] = Object.freeze(["ES256", "PS256", "EdDSA", "Ed25519"]);
@@ -18,5 +20,7 @@ declare const legacyBrand: unique symbol;
  */
 export interface LegacyProofAlgorithm {
 	readonly name: "RS256";
+	/** Lacewing's descriptor for the same algorithm. */
+	readonly lacewing: AlgorithmInfo;
 	readonly [legacyBrand]: true;
 }

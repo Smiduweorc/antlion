@@ -18,7 +18,7 @@ import { PROOF_ALGORITHMS } from "../../src/algorithms.js";
 import { sha256 } from "../../src/base64url.js";
 import { AntlionError } from "../../src/errors.js";
 import { normalizeHtu } from "../../src/htu.js";
-import { checkProof } from "../../src/proof.js";
+import { checkProof, type ProofExpectation } from "../../src/proof.js";
 
 const GOLDEN = join(dirname(fileURLToPath(import.meta.url)), "golden");
 
@@ -36,8 +36,8 @@ const RFC9449_FIGURE_2 =
 const RFC9449_TOKEN = "Kz~8mXK1EalYznwH-LC-1fBAo.4Ljp~zsPE_NeO.gxU";
 const RFC9449_JKT = "0ZcOCORZNYy-DWpqq30jZyJGHTN0d2HglBV3uiguA4I";
 
-function expecting(method: string, uri: string): { algorithms: readonly string[]; method: string; htu: string } {
-	return { algorithms: PROOF_ALGORITHMS, method, htu: normalizeHtu(uri) as string };
+function expecting(method: string, uri: string): ProofExpectation {
+	return { algorithms: PROOF_ALGORITHMS, legacyDescriptors: [], method, htu: normalizeHtu(uri) as string };
 }
 
 test("[9449-6.1.1] RFC 9449 figure 13 verifies, and its key's thumbprint is the RFC's jkt", async () => {

@@ -1,7 +1,8 @@
 import type { DurationSeconds, ExpectedJwtProfile } from "lacewing";
-import { getAlgorithmProperties, parseDuration } from "lacewing/extension";
+import { parseDuration, type AlgorithmInfo } from "lacewing/extension";
 import { PROOF_ALGORITHMS, type LegacyProofAlgorithm } from "./algorithms.js";
 import { AntlionError } from "./errors.js";
+import { legacyRS256Proofs } from "./legacy.js";
 import { Nonces } from "./nonce.js";
 import type { ReplayStore } from "./replay-store.js";
 
@@ -81,6 +82,8 @@ export interface DPoPProfile {
 	readonly maxProofAge: DurationSeconds;
 	/** The proof `alg` values accepted, in the order the challenge lists them. */
 	readonly algorithms: readonly string[];
+	/** @internal Lacewing descriptors for the legacy entries of `algorithms`. */
+	readonly legacyDescriptors: readonly AlgorithmInfo[];
 	/** @internal */
 	readonly nonces: Nonces | undefined;
 	/** @internal */
@@ -121,23 +124,26 @@ function checkMaxProofAge(value: number | string | undefined): DurationSeconds {
 	return seconds;
 }
 
-function checkAlgorithms(legacy: readonly LegacyProofAlgorithm[] | undefined): readonly string[] {
-	if (legacy === undefined) return PROOF_ALGORITHMS;
+const NO_LEGACY: readonly AlgorithmInfo[] = Object.freeze([]);
+
+function checkAlgorithms(legacy: readonly LegacyProofAlgorithm[] | undefined): {
+	algorithms: readonly string[];
+	legacyDescriptors: readonly AlgorithmInfo[];
+} {
+	if (legacy === undefined) return { algorithms: PROOF_ALGORITHMS, legacyDescriptors: NO_LEGACY };
 	if (!Array.isArray(legacy)) throw invalid("legacyAlgorithms must be an array");
 	const names = new Set(PROOF_ALGORITHMS);
-	for (const entry of legacy as readonly unknown[]) {
-		const name = (entry as { name?: unknown } | null)?.name;
-		if (name !== "RS256") {
+	const descriptors = new Set<AlgorithmInfo>();
+	for (const entry of legacy) {
+		// Identity, not shape: only the frozen object antlion-lacewing/legacy
+		// hands out carries a descriptor Lacewing will accept.
+		if (entry !== legacyRS256Proofs()) {
 			throw invalid("legacyAlgorithms only takes what antlion-lacewing/legacy returns");
 		}
-		try {
-			getAlgorithmProperties(name);
-		} catch (cause) {
-			throw invalid("RS256 is not enabled; get it from legacyRS256Proofs()", cause);
-		}
-		names.add(name);
+		names.add(entry.name);
+		descriptors.add(entry.lacewing);
 	}
-	return Object.freeze([...names]);
+	return { algorithms: Object.freeze([...names]), legacyDescriptors: Object.freeze([...descriptors]) };
 }
 
 function checkNonceSecrets(secrets: unknown): readonly Uint8Array<ArrayBuffer>[] {
@@ -190,6 +196,7 @@ export function defineDPoPProfile(options: DPoPProfileOptions): DPoPProfile {
 	}
 	if (now !== undefined && typeof now !== "function") throw invalid("now must be a function");
 	const maxProofAge = checkMaxProofAge(options.maxProofAge);
+	const { algorithms, legacyDescriptors } = checkAlgorithms(options.legacyAlgorithms);
 
 	return Object.freeze({
 		__brand: "DPoPProfile",
@@ -198,7 +205,8 @@ export function defineDPoPProfile(options: DPoPProfileOptions): DPoPProfile {
 		replay,
 		nonce,
 		maxProofAge,
-		algorithms: checkAlgorithms(options.legacyAlgorithms),
+		algorithms,
+		legacyDescriptors,
 		nonces:
 			nonce === "required"
 				? new Nonces(checkNonceSecrets(options.nonceSecrets), origin, maxProofAge, FUTURE_SKEW_SECONDS)

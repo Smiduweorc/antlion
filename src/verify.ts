@@ -262,6 +262,7 @@ export async function verifyDPoPRequest(
 		const token = readToken(request);
 		const proof = await checkProof(readProof(request), {
 			algorithms: profile.algorithms,
+			legacyDescriptors: profile.legacyDescriptors,
 			method,
 			htu,
 		});

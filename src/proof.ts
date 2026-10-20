@@ -13,7 +13,7 @@
  */
 
 import { calculateJwkThumbprint, compactVerify, EmbeddedJWK } from "jose";
-import { getAlgorithmProperties, parseJsonObject } from "lacewing/extension";
+import { getAlgorithmProperties, parseJsonObject, type AlgorithmInfo } from "lacewing/extension";
 import { decodeCanonical } from "./base64url.js";
 import { AntlionError } from "./errors.js";
 import { normalizeHtu } from "./htu.js";
@@ -36,6 +36,8 @@ const FORBIDDEN_HEADER = ["jku", "x5u", "x5c", "x5t", "x5t#S256", "crit", "b64",
 export interface ProofExpectation {
 	/** Accepted `alg` values, exact case. */
 	readonly algorithms: readonly string[];
+	/** Lacewing descriptors for the legacy entries of `algorithms`; empty for the FAPI set. */
+	readonly legacyDescriptors: readonly AlgorithmInfo[];
 	/** The request method, compared exactly. */
 	readonly method: string;
 	/** The request's URI after {@link normalizeHtu}. */
@@ -93,7 +95,7 @@ function modulusBits(n: unknown): number {
 	return (bytes.length - 1) * 8 + Math.floor(Math.log2(bytes[0] as number)) + 1;
 }
 
-function checkKey(jwk: unknown, alg: string): void {
+function checkKey(jwk: unknown, alg: string, legacy: readonly AlgorithmInfo[]): void {
 	if (typeof jwk !== "object" || jwk === null || Array.isArray(jwk)) {
 		throw new AntlionError("proof-key", "DPoP proof has no jwk header");
 	}
@@ -101,7 +103,7 @@ function checkKey(jwk: unknown, alg: string): void {
 	if (PRIVATE_MEMBERS.some((member) => member in key)) {
 		throw new AntlionError("proof-key", "DPoP proof jwk contains private key material");
 	}
-	const expected = getAlgorithmProperties(alg);
+	const expected = getAlgorithmProperties(alg, legacy);
 	if (key.kty !== expected.kty) {
 		throw new AntlionError("proof-key", "DPoP proof jwk key type does not match alg");
 	}
@@ -150,7 +152,7 @@ export async function checkProof(proof: string, expected: ProofExpectation): Pro
 	for (const parameter of FORBIDDEN_HEADER) {
 		if (parameter in header) throw malformed("DPoP proof header carries a forbidden parameter");
 	}
-	checkKey(header.jwk, alg);
+	checkKey(header.jwk, alg, expected.legacyDescriptors);
 
 	const jti = requireString(payload, "jti");
 	const htm = requireString(payload, "htm");
