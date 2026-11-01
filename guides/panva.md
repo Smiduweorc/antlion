@@ -74,7 +74,7 @@ data    = fetchProtectedResource(config, token, url, method, ..., { DPoP: dpop }
 accessToken = Lacewing access-token profile
   issuer:     the oidc-provider issuer
   audience:   the resource indicator the client asked for
-  keys:       the issuer's jwks_uri
+  keys:       the issuer's jwks_uri, with your cache TTL, cooldown and timeout
   algorithms: the ones the issuer signs access tokens with
 
 dpop = Antlion profile
