@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { base64url } from "jose";
-import { accessTokenProfile } from "lacewing";
+import { accessTokenProfile, unsafeCustomKeySource } from "lacewing";
 import { AntlionError, type DPoPProfile } from "../../index.js";
 import {
 	ath,
@@ -109,7 +109,7 @@ test("an AntlionError thrown by your own KeySource comes back as the same object
 		issuer: ISSUER,
 		audience: AUDIENCE,
 		algorithms: ["ES256"],
-		keys: { getVerificationKey: async () => { throw yours; } },
+		keys: unsafeCustomKeySource({ getVerificationKey: async () => { throw yours; } }),
 	});
 	await assert.rejects(verifyDPoPRequest(request(token, proof), profile({ token: throwing })), (error) => error === yours);
 });

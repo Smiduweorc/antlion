@@ -4,7 +4,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { accessTokenProfile, type KeySource } from "lacewing";
+import { accessTokenProfile, unsafeCustomKeySource, type KeySource } from "lacewing";
 import {
 	AUDIENCE,
 	bound,
@@ -92,7 +92,7 @@ test("an error from your own code that Lacewing does not catch comes back unchan
 			throw mine;
 		},
 	};
-	const token = accessTokenProfile({ issuer: ISSUER, audience: AUDIENCE, algorithms: ["ES256"], keys });
+	const token = accessTokenProfile({ issuer: ISSUER, audience: AUDIENCE, algorithms: ["ES256"], keys: unsafeCustomKeySource(keys) });
 	assert.equal(await verifyDPoPRequest(request(jwt, proof), profile({ token })).catch((e: unknown) => e), mine);
 
 	const clockDown = new Error("clock unavailable");
@@ -106,14 +106,14 @@ test("an error from your own code that Lacewing does not catch comes back unchan
 	);
 });
 
-test("a claimValidator that throws is a Lacewing refusal, so it arrives as token-invalid with your error as the root cause", async () => {
+test("an unsafeClaimValidators entry that throws is a Lacewing refusal, so it arrives as token-invalid with your error as the root cause", async () => {
 	const mine = new RangeError("tenant lookup failed");
 	const token = accessTokenProfile({
 		issuer: ISSUER,
 		audience: AUDIENCE,
 		algorithms: ["ES256"],
 		keys: issuer.publicKey,
-		claimValidators: {
+		unsafeClaimValidators: {
 			sub: () => {
 				throw mine;
 			},
@@ -125,7 +125,7 @@ test("a claimValidator that throws is a Lacewing refusal, so it arrives as token
 	assert.equal((error.cause as { cause?: unknown }).cause, mine);
 });
 
-test("a refusal raised inside a claimValidator by Lacewing's own error class becomes token-invalid", async () => {
+test("a refusal raised by Lacewing's own claim checks becomes token-invalid", async () => {
 	const token = accessTokenProfile({
 		issuer: ISSUER,
 		audience: AUDIENCE,
@@ -274,4 +274,48 @@ test("SingleProcessReplayStore requires maxEntries, a whole number from 1, and a
 		);
 	}
 	assert.throws(() => new SingleProcessReplayStore({ maxEntries: 1, now: "now" as never }), { code: "invalid-options" });
+});
+
+// Found while moving to Lacewing 3: verifyDPoPRequest trusted a `__brand`
+// string, so a hand-built or copied profile skipped every check
+// defineDPoPProfile makes (a day of proof age, nonces switched off).
+test("a copied or hand-built DPoP profile is refused as invalid-options, before any header is read", async () => {
+	const real = profile();
+	const { proof, token } = await bound();
+	await assert.doesNotReject(verifyDPoPRequest(request(token, proof), real));
+	const forgeries: unknown[] = [
+		{ ...real },
+		{ ...real, maxProofAge: 86_400 },
+		Object.create(real),
+		{ __brand: "DPoPProfile" },
+	];
+	for (const forged of forgeries) {
+		const error = await refusedSync(() => verifyDPoPRequest(request(token, proof), forged as DPoPProfile));
+		assert.equal(error.code, "invalid-options");
+		assert.equal(error.refusal, undefined);
+	}
+});
+
+test("a DPoP profile is frozen", () => {
+	const real = profile();
+	assert.ok(Object.isFrozen(real));
+	assert.throws(() => {
+		(real as { maxProofAge: number }).maxProofAge = 86_400;
+	}, TypeError);
+});
+
+test("a token profile Lacewing did not build is refused when the DPoP profile is defined, not at the first request", async () => {
+	const real = tokenProfile();
+	for (const token of [{ ...real }, Object.create(real), { alg: [], typ: "at+jwt" }]) {
+		const error = await refusedSync(async () =>
+			defineDPoPProfile({
+				token: token as never,
+				origin: ORIGIN,
+				replay: new SingleProcessReplayStore({ maxEntries: 10 }),
+				nonce: "off",
+			})
+		);
+		assert.equal(error.code, "invalid-options");
+		assert.match(error.message, /accessTokenProfile\(\) or defineProfile\(\)/);
+	}
 });

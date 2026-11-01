@@ -26,7 +26,7 @@ import { readHeaderValue } from "lacewing/extension";
 import { sha256 } from "./base64url.js";
 import { AntlionError, withRefusal, type AntlionErrorCode, type DPoPRefusal } from "./errors.js";
 import { normalizeHtu } from "./htu.js";
-import { FUTURE_SKEW_SECONDS, type DPoPProfile } from "./profile.js";
+import { FUTURE_SKEW_SECONDS, isDPoPProfile, type DPoPProfile } from "./profile.js";
 import { checkProof } from "./proof.js";
 
 /**
@@ -253,7 +253,7 @@ export async function verifyDPoPRequest(
 	request: DPoPRequest,
 	profile: DPoPProfile
 ): Promise<DPoPVerifiedJwt> {
-	if (profile?.__brand !== "DPoPProfile") {
+	if (!isDPoPProfile(profile)) {
 		throw new AntlionError("invalid-options", "verifyDPoPRequest() needs a profile from defineDPoPProfile()");
 	}
 	const { method, htu } = readRequest(request, profile.origin);

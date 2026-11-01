@@ -8,7 +8,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { accessTokenProfile, type KeySource } from "lacewing";
+import { accessTokenProfile, unsafeCustomKeySource, type KeySource } from "lacewing";
 import {
 	AUDIENCE,
 	bound,
@@ -38,7 +38,7 @@ function countingTokenProfile(): { token: ReturnType<typeof accessTokenProfile>;
 		},
 	};
 	return {
-		token: accessTokenProfile({ issuer: ISSUER, audience: AUDIENCE, algorithms: ["ES256"], keys }),
+		token: accessTokenProfile({ issuer: ISSUER, audience: AUDIENCE, algorithms: ["ES256"], keys: unsafeCustomKeySource(keys) }),
 		lookups: () => lookups,
 	};
 }
