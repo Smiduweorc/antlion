@@ -62,8 +62,8 @@ defineDPoPProfile:
 ```
 
 - **The origin** is the one your clients sign against, written the way a URL parser prints it: lowercase host, no default port, no trailing slash. `htu` must equal it plus the request's path, after RFC 3986 normalisation, with the query and fragment removed. Anything else is refused when the profile is built, with a message saying what you meant.
-- **The replay store** holds each proof's key thumbprint and a hash of its `jti` for as long as the proof could still be fresh (`maxProofAge` plus six seconds). `SingleProcessReplayStore` is for one process and for tests, and its name says so; it also needs a `maxEntries`, and when it is full it refuses requests rather than forget a proof early. Across a fleet, `RedisReplayStore` and `PostgresReplayStore` share one store between every process, through the Redis or Postgres client you already have. If the store errors, the request is refused.
-- **Nonces** are a trade. `"required"` costs an extra round trip whenever a client's nonce is stale, and stops proofs being generated ahead of time with a lying clock. `"off"` trusts the client's `iat`. When they are on, a nonce is an HMAC over the second it was issued and the origin, valid for `maxProofAge`, so nothing is stored, every node with the same `nonceSecrets` accepts the same nonces, and rotating is putting a new secret first in the list.
+- **The replay store** remembers each accepted proof for `maxProofAge` plus six seconds. `SingleProcessReplayStore` is for one process and for tests; `RedisReplayStore` and `PostgresReplayStore` share one store across a fleet. If the store errors, or the single-process one is full, the request is refused. [Deployment](./guides/deployment.md) covers choosing and sizing one.
+- **Nonces** are a trade. `"required"` costs an extra round trip whenever a client's nonce is stale, and stops proofs being made ahead of time with a lying clock. `"off"` trusts the client's `iat`. Nonces are stateless HMACs, so every node with the same `nonceSecrets` accepts them ([Deployment](./guides/deployment.md#nonces-across-nodes) has rotation).
 
 One more setting has a default, and it is the strict one. `maxProofAge`, how old a proof's `iat` may be, is 60 seconds and can be raised to 300 at most, which is what oauth4webapi allows. A client clock running up to 5 seconds ahead is accepted, and that is not configurable.
 
@@ -118,34 +118,11 @@ One more setting has a default, and it is the strict one. `maxProofAge`, how old
    }
    ```
 
-   On Node's own `http`, Express, Fastify or Koa, build the request with `fromNodeRequest` from `antlion-lacewing/node`. It reads `req.headersDistinct`, because `req.headers` hides a second `Authorization` header, and the path the client signed, which a mounted router rewrites. [Frameworks](./guides/frameworks.md) has each one:
+   On Node's own `http`, Express, Fastify or Koa, build the request with `fromNodeRequest(req)` from `antlion-lacewing/node`; [Frameworks](./guides/frameworks.md) has each one and says why `req.headers` won't do.
 
-   ```ts
-   import { fromNodeRequest } from "antlion-lacewing/node";
+4. Past one process, give every process the same store: `RedisReplayStore` (`antlion-lacewing/redis`) or `PostgresReplayStore` (`antlion-lacewing/postgres`), on the client you already have. [Deployment](./guides/deployment.md) has both.
 
-   await verifyDPoPRequest(fromNodeRequest(req), dpop);                     // node:http, Express
-   await verifyDPoPRequest(fromNodeRequest(request.raw), dpop);             // Fastify
-   await verifyDPoPRequest(fromNodeRequest(ctx.req, ctx.originalUrl), dpop); // Koa
-   ```
-
-4. Past one process, give every process the same store, built on the client you already have. Antlion imports neither client, and adds no dependency:
-
-   ```ts
-   import { RedisReplayStore } from "antlion-lacewing/redis";
-
-   const replay = new RedisReplayStore({ client: redis, prefix: "dpop:" }); // ioredis or node-redis
-   ```
-
-   ```ts
-   import { PostgresReplayStore } from "antlion-lacewing/postgres";
-
-   const replay = new PostgresReplayStore({ client: pool, table: "dpop_replay" }); // a pg Pool
-   setInterval(() => replay.deleteExpired().catch(console.error), 60_000); // or your own scheduler
-   ```
-
-   The Postgres table is yours to create, and its statement is in the `PostgresReplayStore` docs. [Deployment](./guides/deployment.md) covers which store fits which setup.
-
-5. To turn nonces on, pass `nonce: "required"` and `nonceSecrets: [secret]`, where `secret` is at least 32 random bytes (`crypto.getRandomValues(new Uint8Array(32))`, stored where your other secrets are) and is the same on every node. A verified request then carries `nextNonce`; send it back as `DPoP-Nonce` with `Cache-Control: no-store`, and clients never wait for a 401 to learn it.
+5. To turn nonces on, pass `nonce: "required"` and `nonceSecrets: [secret]`, at least 32 random bytes and the same on every node. A verified request then carries `nextNonce` to send back as `DPoP-Nonce` ([Frameworks](./guides/frameworks.md#sending-the-next-nonce)).
 
 ## What DPoP does, and what it does not
 
@@ -167,6 +144,10 @@ People expect more from DPoP than it gives, and then expect it from Antlion.
 | [Deployment](./guides/deployment.md) | Choosing a replay store, sizing it, nonces across nodes, rolling deploys and clock skew |
 | [Threat model](./guides/threat-model.md) | What is protected, against whom, what is assumed, and what is out of scope |
 | [Verification](./guides/verification.md) | Mutation score, fuzzing, the attack corpus, live interop, and the FAPI suite's status |
+| [Performance](./guides/performance.md) | What one verification costs, and the harness to re-run it |
+| [Security](./SECURITY.md), [Changelog](./CHANGELOG.md), [Notice](./NOTICE.md) | Reporting a vulnerability, every release, and the jose licence |
+
+The API reference is generated by TypeDoc (`npm run docs`), with every page above included.
 
 ## Where it sits
 
@@ -182,7 +163,7 @@ Lacewing + Antlion  +  oidc-provider         +  openid-client
 (your API)             (authorization server)   (the client)
 ```
 
-Antlion reads the headers, verifies the proof, hands the token to your Lacewing profile, then checks that the two belong together. [oidc-provider](https://github.com/panva/node-oidc-provider), or Keycloak, Curity or whatever else you run, puts `cnf.jkt` in the token. [openid-client](https://github.com/panva/openid-client), built on [oauth4webapi](https://github.com/panva/oauth4webapi), holds the key and signs a proof for every request. Antlion is only the first part. Past one node, add a shared replay store (Redis or Postgres). [With panva's tools](./guides/panva.md) covers what the three have to agree on.
+oidc-provider (or Keycloak, Curity, ...) puts `cnf.jkt` in the token, openid-client holds the key and signs the proofs, and Antlion checks both on your API. [With panva's tools](./guides/panva.md) covers what the three have to agree on.
 
 ## Known quirks
 
@@ -194,23 +175,7 @@ Antlion reads the headers, verifies the proof, hands the token to your Lacewing 
 - **A throwing `unsafeClaimValidators` function is a refused token.** Lacewing counts it as a failed claim, so it arrives as `token-invalid` with your error at the end of the `cause` chain. An error from your own code that Lacewing does not catch, such as an `unsafeCustomKeySource` you wrote or the `now` clock, comes back unchanged.
 - **Two clocks.** The DPoP profile's `now` drives proof freshness and nonces. The access token's `exp` and age are judged by your Lacewing profile's own `now`. If you set one, set both to the same function.
 - **Nodes sharing a replay store need clocks within one second of each other.** Each node judges `iat` on its own clock, and a replay key lives `maxProofAge + 6` seconds. From one second of difference on, a proof accepted early by the faster node can be accepted again late by the slower one. [Deployment](./guides/deployment.md#clocks) has the arithmetic and the test.
-- **The numbers below are from one laptop.** Re-run them with `npm run bench`, or on a GitHub runner with the Bench workflow.
-
-## Performance
-
-`npm run bench` times `verifyDPoPRequest` one request at a time, on one core, with `SingleProcessReplayStore`. Proofs are signed beforehand, so what is timed is verifying the proof, the ES256 access token through Lacewing 3, the binding, and the store write. On Node 26.13, Linux, an Intel Core 7 350:
-
-| Request | Per second | p50 | p99 |
-| --- | ---: | ---: | ---: |
-| accepted, ES256 proof | 2,909 | 0.309 ms | 0.667 ms |
-| accepted, Ed25519 proof | 3,228 | 0.296 ms | 0.605 ms |
-| accepted, PS256 proof | 3,484 | 0.265 ms | 0.561 ms |
-| accepted, ES256 proof, nonces on | 2,715 | 0.344 ms | 0.667 ms |
-| refused: Bearer scheme | 67,082 | 0.011 ms | 0.038 ms |
-| refused: htu mismatch, before any signature | 46,329 | 0.019 ms | 0.037 ms |
-| refused: bad proof signature | 5,691 | 0.154 ms | 0.417 ms |
-
-A second run on this machine differed by up to 9% on accepted requests and by up to 27% on refusals, which finish in tens of microseconds and feel every scheduler hiccup. A request that fails before any signature costs about a sixteenth of one that verifies, which is the point of the fixed order. A shared store over the network adds its round trip to every accepted request, and nothing here measures that.
+- **The [performance](./guides/performance.md) numbers are from one laptop.** Re-run them with `npm run bench`, or on a GitHub runner with the Bench workflow.
 
 ## Why Antlion exists
 

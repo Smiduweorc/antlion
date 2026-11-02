@@ -1,7 +1,7 @@
 {
 	"$schema": "https://typedoc.org/schema.json",
 	"entryPoints": ["index.ts", "legacy.ts", "node.ts", "redis.ts", "postgres.ts"],
-	"projectDocuments": ["guides/boundaries.md", "guides/panva.md", "guides/frameworks.md", "guides/deployment.md", "guides/threat-model.md", "guides/verification.md"],
+	"projectDocuments": ["guides/*.md", "SECURITY.md", "CHANGELOG.md", "NOTICE.md"],
 	"out": "docs",
 	"includeVersion": true,
 	"excludePrivate": true,
