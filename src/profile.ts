@@ -1,5 +1,5 @@
 import type { DurationSeconds, ExpectedJwtProfile } from "lacewing";
-import { parseDuration, type AlgorithmInfo } from "lacewing/extension";
+import { isVerificationProfile, parseDuration, type AlgorithmInfo } from "lacewing/extension";
 import { PROOF_ALGORITHMS, type LegacyProofAlgorithm } from "./algorithms.js";
 import { AntlionError } from "./errors.js";
 import { legacyRS256Proofs } from "./legacy.js";
@@ -44,7 +44,11 @@ export interface DPoPProfileBaseOptions {
 	maxProofAge?: number | string;
 	/** From `antlion-lacewing/legacy`, and only if a client can't sign anything FAPI allows. */
 	legacyAlgorithms?: readonly LegacyProofAlgorithm[];
-	/** Swappable clock in milliseconds, for `iat` and nonces. Defaults to `Date.now`. */
+	/**
+	 * Swappable clock in milliseconds, for `iat` and nonces. Defaults to
+	 * `Date.now`. The access token is judged by your Lacewing profile's own
+	 * clock, so if you set one, give both the same `now`.
+	 */
 	now?: () => number;
 }
 
@@ -72,7 +76,11 @@ export type DPoPProfileOptions = DPoPProfileBaseOptions &
 		  }
 	);
 
-/** A DPoP profile. Only {@link defineDPoPProfile} makes one. */
+/**
+ * A DPoP profile. Only {@link defineDPoPProfile} makes one; a hand-built or
+ * copied object (`{ ...profile, maxProofAge: 86400 }`) skips its checks and
+ * is refused by {@link verifyDPoPRequest}.
+ */
 export interface DPoPProfile {
 	readonly __brand: "DPoPProfile";
 	readonly token: ExpectedJwtProfile;
@@ -88,6 +96,26 @@ export interface DPoPProfile {
 	readonly nonces: Nonces | undefined;
 	/** @internal */
 	readonly now: () => number;
+}
+
+// Provenance in a private field, which only this class sets and a spread copy
+// does not carry; a `__brand` string anyone could write.
+class MintedDPoPProfile {
+	readonly #minted = true;
+
+	constructor(fields: DPoPProfile) {
+		Object.assign(this, fields);
+		Object.freeze(this);
+	}
+
+	static is(value: unknown): boolean {
+		return typeof value === "object" && value !== null && #minted in value;
+	}
+}
+
+/** True only for profiles {@link defineDPoPProfile} built. */
+export function isDPoPProfile(value: unknown): value is DPoPProfile {
+	return MintedDPoPProfile.is(value);
 }
 
 function invalid(message: string, cause?: unknown): AntlionError {
@@ -170,7 +198,10 @@ function checkNonceSecrets(secrets: unknown): readonly Uint8Array<ArrayBuffer>[]
  * @example
  * ```ts
  * const dpop = defineDPoPProfile({
- *   token: accessTokenProfile({ issuer, audience, algorithms: ["ES256"], keys: { jwksUri } }),
+ *   token: accessTokenProfile({
+ *     issuer, audience, algorithms: ["ES256"],
+ *     keys: { jwksUri, cacheTtlSeconds: 300, cooldownSeconds: 30, timeoutMs: 2000 },
+ *   }),
  *   origin: "https://api.example.com",
  *   replay: new SingleProcessReplayStore({ maxEntries: 100_000 }),
  *   nonce: "off",
@@ -181,7 +212,9 @@ export function defineDPoPProfile(options: DPoPProfileOptions): DPoPProfile {
 	if (typeof options !== "object" || options === null) throw invalid("options are required");
 	const { token, replay, nonce, now } = options;
 
-	if (typeof token !== "object" || token === null || !Array.isArray(token.alg) || typeof token.typ !== "string") {
+	// Lacewing's own provenance check: a hand-built or copied token profile
+	// would otherwise pass here and throw on the first request instead.
+	if (!isVerificationProfile(token)) {
 		throw invalid("token must be a Lacewing profile from accessTokenProfile() or defineProfile()");
 	}
 	const origin = checkOrigin(options.origin);
@@ -198,7 +231,7 @@ export function defineDPoPProfile(options: DPoPProfileOptions): DPoPProfile {
 	const maxProofAge = checkMaxProofAge(options.maxProofAge);
 	const { algorithms, legacyDescriptors } = checkAlgorithms(options.legacyAlgorithms);
 
-	return Object.freeze({
+	const fields: DPoPProfile = {
 		__brand: "DPoPProfile",
 		token,
 		origin,
@@ -212,5 +245,8 @@ export function defineDPoPProfile(options: DPoPProfileOptions): DPoPProfile {
 				? new Nonces(checkNonceSecrets(options.nonceSecrets), origin, maxProofAge, FUTURE_SKEW_SECONDS)
 				: undefined,
 		now: now ?? Date.now,
-	});
+	};
+	// The instance holds exactly DPoPProfile's own properties plus the
+	// private field, which the type system cannot see.
+	return new MintedDPoPProfile(fields) as unknown as DPoPProfile;
 }

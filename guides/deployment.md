@@ -76,6 +76,14 @@ ceiling because that is what oauth4webapi accepts.
 
 ## Redis
 
+```ts
+import { RedisReplayStore } from "antlion-lacewing/redis";
+
+const replay = new RedisReplayStore({ client: redis, prefix: "dpop:" }); // ioredis or node-redis
+```
+
+Antlion imports neither client and adds no dependency.
+
 - **Set `maxmemory-policy` to `noeviction`.** Under any `volatile-*` or
   `allkeys-*` policy Redis evicts keys with a TTL when memory runs short,
   and an evicted replay key is a proof that can be accepted again. Under
@@ -91,6 +99,13 @@ ceiling because that is what oauth4webapi accepts.
   one-line wrapper in the `RedisClientLike` docs.
 
 ## Postgres
+
+```ts
+import { PostgresReplayStore } from "antlion-lacewing/postgres";
+
+const replay = new PostgresReplayStore({ client: pool, table: "dpop_replay" }); // a pg Pool
+setInterval(() => replay.deleteExpired().catch(console.error), 60_000); // or your own scheduler
+```
 
 - **Create the table with your other migrations.** The statement is in the
   `PostgresReplayStore` docs. Not `UNLOGGED`: an unlogged table is emptied
@@ -115,7 +130,9 @@ secrets (`tests/compliance/8-9-nonces.test.ts`, "nonces are stateless").
 
 - **The same list, in the same order, on every node.** The first secret signs
   and all of them verify.
-- **At least 32 random bytes each**, which the profile enforces.
+- **At least 32 random bytes each**, which the profile enforces:
+  `crypto.getRandomValues(new Uint8Array(32))`, stored where your other
+  secrets are.
 - **Rotation is three deploys**, so that no node ever receives a nonce
   signed with a secret it doesn't have yet:
 

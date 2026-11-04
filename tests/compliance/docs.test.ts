@@ -6,7 +6,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DPOP_REQUEST_HEADERS, DPOP_RESPONSE_HEADERS } from "../../index.js";
@@ -33,4 +33,38 @@ test("the README says DPoP hides nothing and is not stateless", () => {
 	assert.match(README, /\*\*It hides nothing\.\*\*/);
 	assert.match(README, /\*\*It isn't stateless\.\*\*/);
 	assert.match(README, /there is no safe DPoP verifier that is stateless/);
+});
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+
+test("the README links every guide, so none of them is unreachable", () => {
+	const guides = readdirSync(join(ROOT, "guides")).filter((name) => name.endsWith(".md"));
+	assert.ok(guides.length > 0);
+	for (const name of guides) {
+		assert.ok(README.includes(`](./guides/${name})`), `README must link guides/${name}`);
+	}
+});
+
+test("TypeDoc includes every markdown document in the repo", () => {
+	const config = JSON.parse(readFileSync(join(ROOT, "typedoc.json"), "utf8")) as {
+		readme: string;
+		projectDocuments: string[];
+	};
+	const covered = (path: string): boolean =>
+		config.projectDocuments.some((entry) =>
+			entry.endsWith("/*.md")
+				? path.startsWith(entry.slice(0, -"*.md".length)) && !path.slice(entry.length - 4).includes("/")
+				: entry === path
+		);
+	// Written by `npm run compliance` and gitignored: a fresh checkout has no
+	// copy, so listing it would break `npm run docs`.
+	const generated = new Set(["compliance-report.md"]);
+	const documents = [
+		...readdirSync(ROOT).filter((name) => name.endsWith(".md")),
+		...readdirSync(join(ROOT, "guides")).filter((name) => name.endsWith(".md")).map((name) => `guides/${name}`),
+	];
+	for (const path of documents) {
+		if (path === config.readme || generated.has(path)) continue;
+		assert.ok(covered(path), `typedoc.json projectDocuments must include ${path}`);
+	}
 });

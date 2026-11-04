@@ -58,10 +58,10 @@ export interface DPoPRefusal {
  * Everything Antlion throws, so a refusal can be told apart from your own
  * code failing without matching on message text. A Lacewing refusal of the
  * access token arrives as `token-invalid` with the Lacewing error as its
- * `cause`; that includes a `claimValidators` function that threw, which
- * Lacewing counts as a failed claim. An error from your code that Lacewing
- * does not catch (a `KeySource` you wrote, the `now` clock) comes back
- * unchanged. Messages never repeat request content.
+ * `cause`; that includes an `unsafeClaimValidators` function that threw,
+ * which Lacewing counts as a failed claim. An error from your code that
+ * Lacewing does not catch (an `unsafeCustomKeySource` you wrote, the `now`
+ * clock) comes back unchanged. Messages never repeat request content.
  */
 export class AntlionError extends Error {
 	override readonly name = "AntlionError";
