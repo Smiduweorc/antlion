@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0] - 2026-11-04
+
+### Bug Fixes
+
+- [**breaking**] Require lacewing 3 and make dpop profiles unforgeable
+
+### Documentation
+
+- Lacewing 3 facts, re-measured bench numbers, less marketing
+
+### Security
+
+- Move setup detail into the guides and include every doc in typedoc
+
 ## [1.0.1] - 2026-10-20
 
 ### Refactor
