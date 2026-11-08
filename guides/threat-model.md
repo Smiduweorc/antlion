@@ -66,6 +66,25 @@ If one of these is false, the guarantee above is weaker:
   replay protection.
 - jose, Lacewing and WebCrypto are correct.
 
+## What DPoP does, and what it does not
+
+People expect more from DPoP than it gives, and then expect it from Antlion.
+
+- **It stops replay, not theft.** A leaked token is useless without the key.
+  Malware or an XSS running inside the client can still use the key to sign
+  fresh proofs, and nothing on the server can tell.
+- **It hides nothing.** The token is as readable as it was before. If the
+  payload is a secret, that is Lacewing's JWE support.
+- **It isn't stateless.** Replay protection needs a store, and nonces need
+  either shared state or a shared secret. A proof is single-use, so
+  something has to remember which ones it has seen:
+  there is no safe DPoP verifier that is stateless.
+- **`iat` alone is not freshness.** It is the client's clock, so a proof can
+  be signed today for use tomorrow. Server nonces close that.
+- **It is not interchangeable with mTLS.** FAPI accepts both, but they fit
+  different infrastructure. DPoP lives in the application layer and survives
+  TLS being terminated at a proxy; mTLS needs the certificate to reach you.
+
 ## Out of scope
 
 - A compromised client. Malware, XSS or an extension inside the client can

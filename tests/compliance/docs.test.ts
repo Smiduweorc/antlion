@@ -1,7 +1,7 @@
 /**
  * Requirements only documentation can meet. "The docs say so" is still a
- * claim, so these read the README that ships and fail if the warning is
- * edited away.
+ * claim, so these read the README and threat model that ship and fail if the
+ * warning is edited away.
  */
 
 import { test } from "node:test";
@@ -12,6 +12,10 @@ import { fileURLToPath } from "node:url";
 import { DPOP_REQUEST_HEADERS, DPOP_RESPONSE_HEADERS } from "../../index.js";
 
 const README = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "README.md"), "utf8");
+const THREAT_MODEL = readFileSync(
+	join(dirname(fileURLToPath(import.meta.url)), "..", "..", "guides", "threat-model.md"),
+	"utf8",
+);
 
 test("the CORS header names are exported, frozen, and named in the README", () => {
 	assert.deepEqual(DPOP_REQUEST_HEADERS, ["Authorization", "DPoP"]);
@@ -24,15 +28,15 @@ test("the CORS header names are exported, frozen, and named in the README", () =
 	assert.match(README, /Access-Control-Expose-Headers/);
 });
 
-test("the README says DPoP stops replay but not a compromised client", () => {
-	assert.match(README, /\*\*It stops replay, not theft\.\*\*/);
-	assert.match(README, /XSS running inside the client can still use the key/);
+test("the threat model says DPoP stops replay but not a compromised client", () => {
+	assert.match(THREAT_MODEL, /\*\*It stops replay, not theft\.\*\*/);
+	assert.match(THREAT_MODEL, /XSS running inside the client can still use the key/);
 });
 
-test("the README says DPoP hides nothing and is not stateless", () => {
-	assert.match(README, /\*\*It hides nothing\.\*\*/);
-	assert.match(README, /\*\*It isn't stateless\.\*\*/);
-	assert.match(README, /there is no safe DPoP verifier that is stateless/);
+test("the threat model says DPoP hides nothing and is not stateless", () => {
+	assert.match(THREAT_MODEL, /\*\*It hides nothing\.\*\*/);
+	assert.match(THREAT_MODEL, /\*\*It isn't stateless\.\*\*/);
+	assert.match(THREAT_MODEL, /there is no safe DPoP verifier that is stateless/);
 });
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
