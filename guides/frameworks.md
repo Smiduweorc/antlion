@@ -4,31 +4,27 @@ title: Frameworks
 
 # Frameworks
 
-**`verifyDPoPRequest` reads a WHATWG `Request`. On Node's own `http`,
-Express, Fastify and Koa, `fromNodeRequest` from `antlion-lacewing/node`
-builds what it reads, and the refusal is a status and headers each framework
-can send as they are.**
-
-The Node, Express, Fastify and Koa code here is what
+`verifyDPoPRequest` reads a WHATWG `Request`. On Node's `http`, Express,
+Fastify and Koa, `fromNodeRequest` from `antlion-lacewing/node` builds one.
+The refusal is a status and headers each framework can send as they are.
+The Node, Express, Fastify and Koa code below is what
 `tests/integration/frameworks.test.ts` runs against a real server, with the
-route mounted under a prefix and requests sent over a socket.
+route mounted under a prefix.
 
-## What the adapter does, and why
+## What the adapter does
 
-- **Headers come from `req.headersDistinct`.** Node's `req.headers` keeps
+- It reads headers from `req.headersDistinct`. Node's `req.headers` keeps
   only the first of two `Authorization` headers, so a duplicate would never
-  reach Antlion. `headersDistinct` keeps both, and Antlion refuses them.
-- **Only `Authorization` and `DPoP` are copied.** Nothing else is read.
-- **The path is the one the client signed.** A mounted router rewrites
-  `req.url`: Express keeps the original in `req.originalUrl`, which the
-  adapter prefers, and Koa keeps it in `ctx.originalUrl`, which you pass.
-  Fastify leaves `request.raw.url` alone.
+  reach Antlion.
+- It copies only `Authorization` and `DPoP`.
+- It uses the path the client signed. A mounted router rewrites `req.url`:
+  Express keeps the original in `req.originalUrl`, which the adapter
+  prefers, and Koa keeps it in `ctx.originalUrl`, which you pass. Fastify
+  leaves `request.raw.url` alone.
 
 The origin always comes from your profile, never from `Host`.
 
 ## A WHATWG `Request`
-
-A handler that already has a `Request` needs no adapter:
 
 ```ts
 const { token } = await verifyDPoPRequest(request, dpop);

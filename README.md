@@ -2,28 +2,73 @@
 
 ![antlion logo](https://github.com/Smiduweorc/antlion/blob/master/assets/logo.png?raw=true)
 
-**Antlion is DPoP for resource servers that already verify access tokens with [Lacewing](https://github.com/Smiduweorc/lacewing): one call checks the access token, the proof and the key binding together, or rejects the request.**
+DPoP for APIs that already verify access tokens with [Lacewing](https://github.com/Smiduweorc/lacewing). You wrap your Lacewing profile and call `verifyDPoPRequest(request, profile)`; it returns the verified token or throws a refusal you can send as-is.
 
-It implements the resource-server side of [RFC 9449 (DPoP)](https://datatracker.ietf.org/doc/html/rfc9449), with the algorithm set from the FAPI 2.0 Security Profile. A bound token is no use to someone who has the token but not the client's private key. It does not create proofs, run an authorization server, or read client certificates.
+It implements the resource-server side of [RFC 9449](https://datatracker.ietf.org/doc/html/rfc9449), with the FAPI 2.0 proof algorithms (`PS256`, `ES256`, and Ed25519 as either `EdDSA` or `Ed25519`, which is what panva's clients send). `RS256` is available only through the `antlion-lacewing/legacy` import. [jose](https://github.com/panva/jose) is the one direct dependency, used only for the proof.
 
-Lacewing is a peer dependency, and the access token is still verified by a Lacewing profile. [jose](https://github.com/panva/jose) is the one direct dependency, used only for the proof. Nothing happens at import time.
+## Install
 
-## Antlion is not for you if you
+```sh
+npm install antlion-lacewing lacewing
+```
 
-- **want to create DPoP proofs.** That is the client's side. [oauth4webapi](https://github.com/panva/oauth4webapi) and [openid-client](https://github.com/panva/openid-client) already do it well, including the retry on a nonce challenge.
-- **run an authorization server.** Issuing `cnf.jkt` tokens, `dpop_jkt`, PAR and PKCE belong to [oidc-provider](https://github.com/panva/node-oidc-provider), Keycloak, and the rest of that shelf.
-- **want one endpoint to accept `Bearer` and `DPoP` while you migrate.** An endpoint that accepts both is exactly as strong as `Bearer`. Route the two kinds of traffic to two profiles, on purpose, and delete the old route when you are done.
-- **bind tokens with mTLS.** RFC 8705 works at the TLS layer and needs the client certificate to reach your service. Nothing here reads a certificate.
-- **use opaque tokens and introspection.** v1 is JWT access tokens (RFC 9068) only, where `cnf.jkt` travels inside the token.
-- **want it to work out your URL from the request.** `origin` is required. `Host`, `X-Forwarded-*` and `Forwarded` are never read, because they are whatever the client or the nearest proxy says they are.
-- **want replay protection without state.** A proof is single-use, so something has to remember which ones it has seen. The replay store is required by the type, and there is no safe DPoP verifier that is stateless.
-- **are not using Lacewing.** Antlion wraps a Lacewing profile and adds nothing to what that profile checks. Without Lacewing, `oauth4webapi`'s `validateJwtAccessToken` does the binding correctly; [With panva's tools](./guides/panva.md) lists what to add around it.
+Node 24 or later (CI runs Node 24 on Linux, macOS and Windows). Lacewing 3 is a peer dependency.
+
+## Example
+
+```ts
+import { accessTokenProfile } from "lacewing";
+import { AntlionError, defineDPoPProfile, SingleProcessReplayStore, verifyDPoPRequest } from "antlion-lacewing";
+
+const dpop = defineDPoPProfile({
+	token: accessTokenProfile({
+		issuer: "https://auth.example.com",
+		audience: "https://api.example.com",
+		algorithms: ["ES256"],
+		keys: {
+			jwksUri: "https://auth.example.com/jwks",
+			cacheTtlSeconds: 300, // Lacewing makes you pick these three
+			cooldownSeconds: 30,
+			timeoutMs: 2000,
+		},
+	}),
+	origin: "https://api.example.com",
+	replay: new SingleProcessReplayStore({ maxEntries: 100_000 }),
+	nonce: "off",
+});
+
+async function handle(request: Request): Promise<Response> {
+	try {
+		const { token } = await verifyDPoPRequest(request, dpop);
+		return Response.json({ hello: token.payload.sub });
+	} catch (error) {
+		if (error instanceof AntlionError && error.refusal !== undefined) {
+			// error.code says which check failed. Log it; don't send it.
+			return new Response(null, error.refusal);
+		}
+		throw error;
+	}
+}
+```
+
+On Node's `http`, Express, Fastify or Koa, build the request with `fromNodeRequest(req)` from `antlion-lacewing/node` ([Frameworks](./guides/frameworks.md)).
+
+With more than one process, every process needs the same store: `RedisReplayStore` (`antlion-lacewing/redis`) or `PostgresReplayStore` (`antlion-lacewing/postgres`), on the client you already have ([Deployment](./guides/deployment.md)).
+
+To turn nonces on, pass `nonce: "required"` and `nonceSecrets: [secret]`, at least 32 random bytes and the same on every node. A verified request then carries `nextNonce` to send back as `DPoP-Nonce`.
+
+## The options
+
+`token`, `origin`, `replay` and `nonce` have no default.
+
+- `origin` is the origin your clients sign against, written the way a URL parser prints it: lowercase host, no default port, no trailing slash. `htu` must equal it plus the request path, after RFC 3986 normalisation, without query or fragment. `Host`, `X-Forwarded-*` and `Forwarded` are never read. A malformed origin is refused when the profile is built.
+- `replay` remembers each accepted proof for `maxProofAge` plus 6 seconds. If the store errors, or the single-process one is full, the request is refused.
+- `nonce: "required"` costs an extra round trip whenever a client's nonce is stale, and stops proofs being signed in advance with a wrong clock. `"off"` trusts the client's `iat`. Nonces are stateless HMACs, so nodes only share the secret.
+- `maxProofAge` defaults to 60 seconds, at most 300 (what oauth4webapi allows). A client clock up to 5 seconds ahead is accepted; that is fixed.
 
 ## How it works
 
-The access token, the proof and the binding between them are one check. There is no function that verifies a proof on its own, because a valid proof only shows that *someone* holds *some* key. The security is in tying that key to the token and the proof to this request, so a result only exists once all of it has passed.
-
-In outline, `verifyDPoPRequest(request, profile)` does this, in this order, and stops at the first refusal:
+`verifyDPoPRequest` runs these checks in this order and stops at the first refusal:
 
 ```text
 one  Authorization: DPoP <token>   (Bearer refused, duplicates refused)
@@ -41,149 +86,51 @@ replay:    first time this proof has been seen, or refuse
 -> DPoPVerifiedJwt
 ```
 
-What follows from that:
+There is no exported function that checks a proof without the binding. The replay store is asked last, so unauthenticated requests never write to it. The key in the proof header is used for the proof signature and nothing else.
 
-- **There is one way to verify.** No proof-only verifier is exported, so "checked the proof, forgot the binding" is not something you can write.
-- **Cheap checks run before expensive ones, and the store runs last.** Nothing unauthenticated reaches the replay store, so garbage can't be used to fill it or probe it.
-- **The key in a proof header is trusted for the proof and nowhere else.** Verifying against an embedded key happens in exactly one internal module, and the access token never goes near it.
-- **The algorithms are the FAPI 2.0 set:** `PS256`, `ES256`, and Ed25519 under either `EdDSA` or its fully-specified RFC 9864 name `Ed25519`, which is what panva's clients send. `none` and HMAC can't be expressed. `RS256` exists only behind an explicit legacy import, the same way Lacewing does it.
-- **Antlion writes the refusal.** A 401 with a spec-correct `WWW-Authenticate: DPoP` challenge that lists the accepted algorithms, plus `DPoP-Nonce` and `Cache-Control: no-store` when the client needs a fresh nonce. A duplicated or malformed `Authorization` header is a 400 `invalid_request`, as RFC 6750 asks. The client sees one of `invalid_request`, `invalid_token`, `invalid_dpop_proof` or `use_dpop_nonce` and nothing more; the precise reason comes back to you as a typed code for your own logs.
+A refusal is a 401 with a `WWW-Authenticate: DPoP` challenge listing the accepted algorithms, plus `DPoP-Nonce` and `Cache-Control: no-store` when a fresh nonce is due. A duplicated or malformed `Authorization` header is a 400 `invalid_request` (RFC 6750). The client sees only `invalid_request`, `invalid_token`, `invalid_dpop_proof` or `use_dpop_nonce`; the exact reason is `error.code`, for your logs.
 
-## What you decide
+## Not included
 
-A DPoP profile wraps the Lacewing profile you already have. Four things have no default, because only you know the answer:
-
-```text
-defineDPoPProfile:
-  token:   your Lacewing access-token profile
-  origin:  "https://api.example.com"
-  replay:  a store with one atomic addIfAbsent(key, ttlSeconds)
-  nonce:   "required" (with nonceSecrets) | "off"
-```
-
-- **The origin** is the one your clients sign against, written the way a URL parser prints it: lowercase host, no default port, no trailing slash. `htu` must equal it plus the request's path, after RFC 3986 normalisation, with the query and fragment removed. Anything else is refused when the profile is built, with a message saying what you meant.
-- **The replay store** remembers each accepted proof for `maxProofAge` plus six seconds. `SingleProcessReplayStore` is for one process and for tests; `RedisReplayStore` and `PostgresReplayStore` share one store across a fleet. If the store errors, or the single-process one is full, the request is refused. [Deployment](./guides/deployment.md) covers choosing and sizing one.
-- **Nonces** are a trade. `"required"` costs an extra round trip whenever a client's nonce is stale, and stops proofs being made ahead of time with a lying clock. `"off"` trusts the client's `iat`. Nonces are stateless HMACs, so every node with the same `nonceSecrets` accepts them ([Deployment](./guides/deployment.md#nonces-across-nodes) has rotation).
-
-One more setting has a default, and it is the strict one. `maxProofAge`, how old a proof's `iat` may be, is 60 seconds and can be raised to 300 at most, which is what oauth4webapi allows. A client clock running up to 5 seconds ahead is accepted, and that is not configurable.
-
-## Quick start
-
-1. Install it next to Lacewing:
-
-   ```sh
-   npm install antlion-lacewing lacewing
-   ```
-
-2. Build the profile once, next to the Lacewing profile it wraps:
-
-   ```ts
-   import { accessTokenProfile } from "lacewing";
-   import { defineDPoPProfile, SingleProcessReplayStore } from "antlion-lacewing";
-
-   const dpop = defineDPoPProfile({
-   	token: accessTokenProfile({
-   		issuer: "https://auth.example.com",
-   		audience: "https://api.example.com",
-   		algorithms: ["ES256"],
-   		keys: {
-   			jwksUri: "https://auth.example.com/jwks",
-   			cacheTtlSeconds: 300, // Lacewing makes you pick these three
-   			cooldownSeconds: 30,
-   			timeoutMs: 2000,
-   		},
-   	}),
-   	origin: "https://api.example.com",
-   	replay: new SingleProcessReplayStore({ maxEntries: 100_000 }),
-   	nonce: "off",
-   });
-   ```
-
-3. Verify every request, and send the refusal Antlion wrote when it says no:
-
-   ```ts
-   import { AntlionError, verifyDPoPRequest } from "antlion-lacewing";
-
-   async function handle(request: Request): Promise<Response> {
-   	try {
-   		const { token } = await verifyDPoPRequest(request, dpop);
-   		return Response.json({ hello: token.payload.sub });
-   	} catch (error) {
-   		if (error instanceof AntlionError && error.refusal !== undefined) {
-   			// error.code says which check failed. Log it; don't send it.
-   			return new Response(null, error.refusal);
-   		}
-   		throw error;
-   	}
-   }
-   ```
-
-   On Node's own `http`, Express, Fastify or Koa, build the request with `fromNodeRequest(req)` from `antlion-lacewing/node`; [Frameworks](./guides/frameworks.md) has each one and says why `req.headers` won't do.
-
-4. Past one process, give every process the same store: `RedisReplayStore` (`antlion-lacewing/redis`) or `PostgresReplayStore` (`antlion-lacewing/postgres`), on the client you already have. [Deployment](./guides/deployment.md) has both.
-
-5. To turn nonces on, pass `nonce: "required"` and `nonceSecrets: [secret]`, at least 32 random bytes and the same on every node. A verified request then carries `nextNonce` to send back as `DPoP-Nonce` ([Frameworks](./guides/frameworks.md#sending-the-next-nonce)).
-
-## What DPoP does, and what it does not
-
-People expect more from DPoP than it gives, and then expect it from Antlion.
-
-- **It stops replay, not theft.** A leaked token is useless without the key. Malware or an XSS running inside the client can still use the key to sign fresh proofs, and nothing on the server can tell.
-- **It hides nothing.** The token is as readable as it was before. If the payload is a secret, that is Lacewing's JWE support.
-- **It isn't stateless.** Replay protection needs a store, and nonces need either shared state or a shared secret.
-- **`iat` alone is not freshness.** It is the client's clock, so a proof can be signed today for use tomorrow. Server nonces close that.
-- **It is not interchangeable with mTLS.** FAPI accepts both, but they fit different infrastructure. DPoP lives in the application layer and survives TLS being terminated at a proxy; mTLS needs the certificate to reach you.
-
-## Documentation
-
-| Guide | What it covers |
-| --- | --- |
-| [Boundaries](./guides/boundaries.md) | What Antlion owns, what it will never do, and where that work goes |
-| [With panva's tools](./guides/panva.md) | `oidc-provider` and `openid-client` around Antlion, what has to match, and when to use `oauth4webapi` instead |
-| [Frameworks](./guides/frameworks.md) | A WHATWG `Request`, Node's `http`, Express, Fastify and Koa: building the request and sending the refusal |
-| [Deployment](./guides/deployment.md) | Choosing a replay store, sizing it, nonces across nodes, rolling deploys and clock skew |
-| [Threat model](./guides/threat-model.md) | What is protected, against whom, what is assumed, and what is out of scope |
-| [Verification](./guides/verification.md) | Mutation score, fuzzing, the attack corpus, live interop, and the FAPI suite's status |
-| [Performance](./guides/performance.md) | What one verification costs, and the harness to re-run it |
-| [Security](./SECURITY.md), [Changelog](./CHANGELOG.md), [Notice](./NOTICE.md) | Reporting a vulnerability, every release, and the jose licence |
-
-The API reference is generated by TypeDoc (`npm run docs`), with every page above included.
-
-## Where it sits
-
-| Package | Question it answers |
-| --- | --- |
-| [Lacewing](https://github.com/Smiduweorc/lacewing) | Is this token signed by who it claims, unexpired, and meant for me? |
-| **Antlion** | **Is the one presenting it the one it was issued to, and is this request the one they signed?** |
-
-A whole FAPI 2.0 setup with DPoP, in one line:
-
-```text
-Lacewing + Antlion  +  oidc-provider         +  openid-client
-(your API)             (authorization server)   (the client)
-```
-
-oidc-provider (or Keycloak, Curity, ...) puts `cnf.jkt` in the token, openid-client holds the key and signs the proofs, and Antlion checks both on your API. [With panva's tools](./guides/panva.md) covers what the three have to agree on.
+- Creating proofs and retrying on a nonce challenge. Use [oauth4webapi](https://github.com/panva/oauth4webapi) or [openid-client](https://github.com/panva/openid-client).
+- Issuing bound tokens, `dpop_jkt`, PAR, PKCE. Use [oidc-provider](https://github.com/panva/node-oidc-provider), Keycloak or your authorization server.
+- Accepting `Bearer` and `DPoP` on one route while you migrate. Put the old traffic on its own route with a plain Lacewing profile.
+- mTLS (RFC 8705).
+- Opaque tokens and introspection. JWT access tokens (RFC 9068) only.
+- Verifying tokens without Lacewing. Use oauth4webapi's `validateJwtAccessToken`; [With panva's tools](./guides/panva.md) lists what to add around it.
 
 ## Known quirks
 
-- **It needs Lacewing 3.** Antlion shares Lacewing's algorithm table, header reading, duration parsing, strict JSON reading and profile provenance check through `lacewing/extension`, so the two can't drift apart. Legacy `RS256` proofs carry Lacewing's `LEGACY_RS256` descriptor, which works only on the profile it is passed to. A new Antlion major usually ships alongside the Lacewing major it needs.
-- **Profiles can't be hand-built or copied.** `defineDPoPProfile` refuses a token profile that Lacewing's `defineProfile` didn't make, and `verifyDPoPRequest` refuses a DPoP profile `defineDPoPProfile` didn't make, `{ ...profile }` included. Both are `invalid-options`.
-- **JWT access tokens only.** Opaque tokens and introspection are out of v1, and may stay out.
-- **Browsers need CORS.** A browser client has to be allowed to send `DPoP` and to read `DPoP-Nonce` and `WWW-Authenticate`. `DPOP_REQUEST_HEADERS` goes in `Access-Control-Allow-Headers` and `DPOP_RESPONSE_HEADERS` in `Access-Control-Expose-Headers`; the rest of the CORS policy is yours.
-- **Node drops a duplicate `Authorization` header.** `req.headers` keeps the first one. `fromNodeRequest` reads `req.headersDistinct` instead; if you build the request yourself, do the same, or a second header goes unnoticed.
-- **A throwing `unsafeClaimValidators` function is a refused token.** Lacewing counts it as a failed claim, so it arrives as `token-invalid` with your error at the end of the `cause` chain. An error from your own code that Lacewing does not catch, such as an `unsafeCustomKeySource` you wrote or the `now` clock, comes back unchanged.
-- **Two clocks.** The DPoP profile's `now` drives proof freshness and nonces. The access token's `exp` and age are judged by your Lacewing profile's own `now`. If you set one, set both to the same function.
-- **Nodes sharing a replay store need clocks within one second of each other.** Each node judges `iat` on its own clock, and a replay key lives `maxProofAge + 6` seconds. From one second of difference on, a proof accepted early by the faster node can be accepted again late by the slower one. [Deployment](./guides/deployment.md#clocks) has the arithmetic and the test.
-- **The [performance](./guides/performance.md) numbers are from one laptop.** Re-run them with `npm run bench`, or on a GitHub runner with the Bench workflow.
+- It needs Lacewing 3. Antlion uses Lacewing's algorithm table, header reading, duration parsing, JSON reading and profile check through `lacewing/extension`. A new Antlion major usually ships with the Lacewing major it needs. Legacy `RS256` proofs use Lacewing's `LEGACY_RS256` descriptor, which works only on the profile it is passed to.
+- Profiles can't be hand-built or copied. `defineDPoPProfile` refuses a token profile Lacewing's `defineProfile` didn't make, and `verifyDPoPRequest` refuses a DPoP profile `defineDPoPProfile` didn't make, `{ ...profile }` included. Both throw `invalid-options`.
+- Browsers need CORS. Put `DPOP_REQUEST_HEADERS` in `Access-Control-Allow-Headers` and `DPOP_RESPONSE_HEADERS` in `Access-Control-Expose-Headers`.
+- Node drops a duplicate `Authorization` header: `req.headers` keeps the first one. `fromNodeRequest` reads `req.headersDistinct`; if you build the request yourself, do the same, or a second header goes unnoticed.
+- A throwing `unsafeClaimValidators` function is a refused token (`token-invalid`, your error at the end of the `cause` chain). An error Lacewing does not catch, such as from your `unsafeCustomKeySource` or `now`, comes back unchanged.
+- There are two clocks. The DPoP profile's `now` drives proof freshness and nonces; the Lacewing profile's `now` judges the token's `exp`. If you set one, set both to the same function.
+- Nodes sharing a replay store need clocks within one second of each other, or a proof can be accepted once by the fast node and again by the slow one ([Deployment](./guides/deployment.md#clocks)).
+- The Redis and Postgres stores are tested in CI against a single Redis 8 and a single Postgres 18. Redis Cluster is not tested.
+- The [performance](./guides/performance.md) numbers are from one laptop.
 
-## Why Antlion exists
+## Guides
 
-Lacewing's README says proof-of-possession is beyond its bearer-token scope, and it meant it. Then a Lacewing user needed FAPI 2.0, which requires tokens bound to the client, and DPoP is the binding that works behind a TLS-terminating proxy. So the insect grew a sibling.
+- [Boundaries](./guides/boundaries.md)
+- [With panva's tools](./guides/panva.md)
+- [Frameworks](./guides/frameworks.md)
+- [Deployment](./guides/deployment.md)
+- [Threat model](./guides/threat-model.md)
+- [Verification](./guides/verification.md)
+- [Performance](./guides/performance.md)
+- [Security](./SECURITY.md), [Changelog](./CHANGELOG.md), [Notice](./NOTICE.md)
 
-The JavaScript resource-server side is thin. panva's oauth4webapi does validate DPoP-bound access tokens, and it is excellent, but it is a general OAuth client with its own settings. Putting it under Lacewing would mean two policy layers that can disagree about what "valid" means, and the disagreement would be where the bug lives.
+The API reference is generated by TypeDoc and includes these pages.
 
-DPoP is a short spec with a lot of room to get it quietly wrong, and every one of these passes a test suite that only ever sends valid requests:
+## Why it exists
+
+Lacewing only does bearer tokens. A Lacewing user needed FAPI 2.0, which requires tokens bound to the client, and DPoP is the binding that still works behind a TLS-terminating proxy.
+
+oauth4webapi does validate DPoP-bound access tokens, but it is a general OAuth client with its own settings. Under Lacewing that would be two policy layers that can disagree about what "valid" means.
+
+Mistakes in DPoP verifiers that pass a test suite which only sends valid requests:
 
 - Verifying the proof and the token, and never comparing `cnf.jkt`
 - Accepting a DPoP-bound token under the `Bearer` scheme
@@ -194,37 +141,12 @@ DPoP is a short spec with a lot of room to get it quietly wrong, and every one o
 - Tracking `jti` in memory on each of twenty nodes, or failing open when the store is down
 - Letting the header pick the algorithm
 
-Antlion refuses every one of these on every request, except the twenty-nodes one, which no library can see from inside one process. It can only name the in-memory store `SingleProcessReplayStore` and make you pick a store at all.
-
-## Scripts
-
-| Script | What it does |
-| --- | --- |
-| `npm run build` | Compile `src/` and `index.ts` to `dist/` with type declarations. |
-| `npm run typecheck` | Type-check the package and the tests without emitting. |
-| `npm run lint` | Run ESLint. |
-| `npm run lint:fix` | Run ESLint and fix what it can. |
-| `npm test` | Run the test suite with the Node test runner via `tsx`. |
-| `npm run test:dist` | Build, then test the built package through its `exports` map. |
-| `npm run test:services` | Test the Redis and Postgres stores, several processes sharing them, and a live Nimbus client. Needs `ANTLION_TEST_REDIS_URL`, `ANTLION_TEST_POSTGRES_URL`, a JDK and the Nimbus jars; the CI `services` job sets all of them up. |
-| `npm run mutation` | Mutation-test the verifier with Stryker and report what the tests miss; writes `reports/mutation/`. |
-| `npm run bench` | Time verification and early refusals, and print a Markdown table with the machine it ran on. |
-| `npm run compliance` | Run the suite and fail if any requirement in `tests/compliance/requirements.json` has no passing test; writes `compliance-report.md`. |
-| `npm run docs` | Generate the API reference into `docs/` with TypeDoc. |
-| `npm run changelog` | Regenerate `CHANGELOG.md` from the commit history. |
-
-> Publishing and deployment are handled manually (custom npm settings), so no release/publish workflow is included here. `npm publish` runs lint, typecheck, the tests, the compliance gate and the built-artifact tests first (`prepublishOnly`), and stops if any of them fails.
+Antlion refuses all of these except the twenty memory stores, which a library can't see from inside one process. That is why the in-memory store is called `SingleProcessReplayStore` and the store has no default.
 
 ## License
 
-MIT
-
-## Attribution
-
-Antlion depends on and includes code adapted from the [jose](https://github.com/panva/jose) library, created by Filip Skokan (panva). The same credit is in [NOTICE.md](./NOTICE.md), which ships with the package. We are grateful for their work!
+MIT. Includes code adapted from [jose](https://github.com/panva/jose) by Filip Skokan (panva); see [NOTICE.md](./NOTICE.md).
 
 ## Lore
 
-Antlions and lacewings are both Neuroptera, and a grown antlion is easy to mistake for a lacewing. It isn't one, and it doesn't replace one.
-
-The larva is the famous part. Some species dig a cone in loose sand at exactly the steepest angle the sand will hold, and sit at the bottom. An ant that steps over the rim finds that every step it takes brings the slope down with it. The antlion doesn't chase anything; the shape of the pit does the work. That is the whole design brief.
+Antlions and lacewings are both Neuroptera, and an adult antlion is easy to mistake for a lacewing. The larva is the famous part: some species dig a cone in loose sand at the steepest angle the sand will hold, and wait at the bottom for an ant to step over the rim.
