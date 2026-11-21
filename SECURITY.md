@@ -4,11 +4,13 @@
 
 | Version | Security fixes |
 | --- | --- |
-| 1.x, latest minor | Yes |
-| Older 1.x minors | No: upgrade to the latest minor, which is never breaking |
-| 0.x | Never published |
+| 2.x, latest minor | Yes |
+| Older 2.x minors | No: upgrade to the latest minor, which is never breaking |
+| 1.x | No: 2.0.0 requires Lacewing 3, see the CHANGELOG |
 
 A fix ships as a patch release on the latest minor.
+
+Published advisories are listed in [ADVISORIES.md](./ADVISORIES.md).
 
 ## Reporting a vulnerability
 
