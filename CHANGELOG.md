@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.2] - 2026-11-22
+
+### Documentation
+
+- Corrected test
+- Update supported versions and publish advisories
+- Include advisories in typedoc
+
+### Miscellaneous Tasks
+
+- Add manually started staged npm publish workflow
+
 ## [2.0.1] - 2026-11-08
 
 ### Documentation
